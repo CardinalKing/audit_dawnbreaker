@@ -13,7 +13,7 @@ const KNOWLEDGE_BASE_FILE = path.join(__dirname, 'knowledge-base.json');
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
 let auditKnowledgeBase = [
     {
@@ -97,426 +97,93 @@ function extractKeywords(question) {
     for (const pattern of patterns) {
         const match = questionLower.match(pattern);
         if (match && match[1]) {
-            coreKeywords.push(match[1].trim());
-            semanticTags.push(match[1].trim());
-            break;
+            const extracted = match[1].trim();
+            if (!stopWords.includes(extracted)) {
+                coreKeywords.push(extracted);
+            }
         }
     }
     
-    if (coreKeywords.length === 0) {
-        const words = questionLower
-            .split(/\s+|，|、/)
-            .filter(word => word && word.length > 1 && !stopWords.includes(word));
-        
-        coreKeywords = words.slice(0, 3);
-        semanticTags = words.slice(0, 2);
+    const wordPattern = /[\u4e00-\u9fa5]{2,}|[a-zA-Z]+/g;
+    const words = questionLower.match(wordPattern) || [];
+    for (const word of words) {
+        if (!stopWords.includes(word) && word.length >= 2 && !coreKeywords.includes(word)) {
+            semanticTags.push(word);
+        }
     }
     
-    return { 
-        coreKeywords: [...new Set(coreKeywords)], 
-        semanticTags: [...new Set(semanticTags)] 
-    };
-}
-
-function addToKnowledgeBase(question, answer) {
-    const { coreKeywords, semanticTags } = extractKeywords(question);
-    
-    const newEntry = {
-        coreKeywords: [...new Set(coreKeywords)],
-        semanticTags: [...new Set(semanticTags)],
-        answer: answer,
-        addedAt: new Date().toISOString()
-    };
-    
-    auditKnowledgeBase.push(newEntry);
-    saveKnowledgeBase(auditKnowledgeBase);
-    
-    console.log(`[${new Date().toISOString()}] 新问题已添加到知识库: "${question}"`);
-    console.log(`[${new Date().toISOString()}] 提取的关键词: ${coreKeywords.join(', ')}`);
+    return { coreKeywords: [...new Set(coreKeywords)], semanticTags: [...new Set(semanticTags)] };
 }
 
 function fuzzyMatchKnowledge(question) {
-    const stopWords = ["如何", "怎么", "什么", "通过", "出来", "的", "了", "是", "在", "和", "及", "与", "等", "呢", "吗", "展开", "链接", "找到"];
-    const questionClean = question.trim().toLowerCase().replace(/[？?。!！]/g, '');
-    const questionWords = questionClean
-        .split(/\s+|，|、/)
-        .filter(word => word && !stopWords.includes(word));
-
+    const { coreKeywords, semanticTags } = extractKeywords(question);
+    console.log(`[${new Date().toISOString()}] 提取关键词:`, { coreKeywords, semanticTags });
+    
+    if (coreKeywords.length === 0 && semanticTags.length === 0) {
+        return null;
+    }
+    
     let bestMatch = null;
-    let maxScore = 0;
-
-    auditKnowledgeBase.forEach(item => {
+    let highestScore = 0;
+    
+    for (const item of auditKnowledgeBase) {
         let score = 0;
         
-        item.coreKeywords.forEach(key => {
-            const keyLower = key.toLowerCase();
-            if (questionWords.includes(keyLower)) {
-                score += 5;
-            } else if (questionClean.includes(keyLower) || keyLower.includes(questionClean)) {
-                score += 4;
-            } else {
-                questionWords.forEach(qw => {
-                    if (keyLower.includes(qw) || qw.includes(keyLower)) {
-                        score += 2;
-                    }
-                });
+        for (const keyword of coreKeywords) {
+            if (item.coreKeywords.some(k => k.includes(keyword) || keyword.includes(k))) {
+                score += 3;
             }
-        });
-        
-        item.semanticTags.forEach(tag => {
-            const tagLower = tag.toLowerCase();
-            if (questionWords.some(qw => tagLower.includes(qw) || qw.includes(tagLower))) {
-                score += 1;
-            } else if (questionClean.includes(tagLower) || tagLower.includes(questionClean)) {
+            if (item.semanticTags.some(t => t.includes(keyword) || keyword.includes(t))) {
                 score += 2;
             }
-        });
+            if (item.answer.includes(keyword)) {
+                score += 1;
+            }
+        }
         
-        if (score > maxScore && score >= 3) {
-            maxScore = score;
+        for (const tag of semanticTags) {
+            if (item.coreKeywords.some(k => k.includes(tag) || tag.includes(k))) {
+                score += 2;
+            }
+            if (item.semanticTags.some(t => t.includes(tag) || tag.includes(t))) {
+                score += 1;
+            }
+        }
+        
+        if (score > highestScore && score >= 2) {
+            highestScore = score;
             bestMatch = item.answer;
         }
-    });
+    }
+    
+    if (bestMatch) {
+        console.log(`[${new Date().toISOString()}] 知识库匹配成功，得分: ${highestScore}`);
+    }
+    
     return bestMatch;
 }
 
 function beautifyAnswer(answer) {
-    if (!answer) return answer;
+    return answer
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+}
+
+function addToKnowledgeBase(question, answer) {
+    const { coreKeywords, semanticTags } = extractKeywords(question);
+    const existingIndex = auditKnowledgeBase.findIndex(item => 
+        item.coreKeywords.some(k => coreKeywords.includes(k))
+    );
     
-    let beautified = answer
-        .replace(/^#{1,6}\s+/gm, '')
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/\*([^*]+)\*/g, '$1')
-        .replace(/`([^`]+)`/g, '$1')
-        .replace(/```[\s\S]*?```/g, '')
-        .replace(/`{3}/g, '')
-        .replace(/^\s*>+\s*/gm, '')
-        .replace(/^\s*[-*+]\s+/gm, '')
-        .replace(/^\s*\d+\.\s+/gm, '')
-        .replace(/\|/g, ' ')
-        .replace(/^\s*[-:]+[-:\s]*$/gm, '')
-        .replace(/---/g, '')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-    
-    beautified = beautified.split('\n').map(line => {
-        line = line.replace(/\s{2,}/g, ' ');
-        line = line.replace(/^\s+|\s+$/g, '');
-        return line;
-    }).join('\n');
-    
-    return beautified;
-}
-
-const DATA_DIR = path.join(__dirname, 'data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const PROGRESS_DIR = path.join(DATA_DIR, 'progress');
-
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-if (!fs.existsSync(PROGRESS_DIR)) {
-    fs.mkdirSync(PROGRESS_DIR, { recursive: true });
-}
-
-function loadUsers() {
-    if (fs.existsSync(USERS_FILE)) {
-        return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    }
-    return {};
-}
-
-function saveUsers(users) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-}
-
-function getUserProgressDir(userId) {
-    return path.join(PROGRESS_DIR, `user_${userId}.json`);
-}
-
-function loadUserData(userId) {
-    const filePath = getUserProgressDir(userId);
-    if (fs.existsSync(filePath)) {
-        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    }
-    return {
-        progress: [],
-        assessment: null,
-        gameData: {
-            level: 1,
-            experience: 0,
-            coins: 100,
-            outfit: 'default',
-            skills: {},
-            achievements: [],
-            badges: [],
-            settings: {},
-            completedChapters: [],
-            chapterStars: {},
-            purchasedItems: []
-        }
-    };
-}
-
-function saveUserData(userId, data) {
-    const filePath = getUserProgressDir(userId);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-}
-
-app.post('/api/auth/register', async (req, res) => {
-    try {
-        const { username, password, email } = req.body;
-
-        if (!username || !password) {
-            return res.status(400).json({ success: false, message: '用户名和密码不能为空' });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({ success: false, message: '密码长度至少为6位' });
-        }
-
-        const users = loadUsers();
-
-        if (users[username]) {
-            const suggestion = username + '_' + Math.floor(Math.random() * 9999);
-            return res.status(409).json({
-                success: false,
-                message: '用户名已存在，建议修改',
-                suggestion: suggestion
-            });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        users[username] = {
-            password: hashedPassword,
-            email: email || null,
-            createdAt: new Date().toISOString(),
-            lastLogin: new Date().toISOString()
-        };
-        saveUsers(users);
-
-        const userId = username;
-        saveUserData(userId, loadUserData(userId));
-
-        const token = jwt.sign(
-            { userId: username, username },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        res.json({
-            success: true,
-            message: '注册成功',
-            token,
-            user: { id: username, username }
+    if (existingIndex === -1) {
+        auditKnowledgeBase.push({
+            coreKeywords,
+            semanticTags,
+            answer: answer.replace(/<br>/g, '\n').replace(/<strong>(.+?)<\/strong>/g, '**$1**')
         });
-    } catch (error) {
-        console.error('注册错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
+        saveKnowledgeBase(auditKnowledgeBase);
     }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-
-        if (!username || !password) {
-            return res.status(400).json({ success: false, message: '用户名和密码不能为空' });
-        }
-
-        const users = loadUsers();
-        const user = users[username];
-
-        if (!user) {
-            return res.status(401).json({ success: false, message: '用户名或密码错误' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-
-        if (!isMatch) {
-            return res.status(401).json({ success: false, message: '用户名或密码错误' });
-        }
-
-        user.lastLogin = new Date().toISOString();
-        saveUsers(users);
-
-        const userData = loadUserData(username);
-
-        const token = jwt.sign(
-            { userId: username, username: user.username },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        res.json({
-            success: true,
-            message: '登录成功',
-            token,
-            user: { id: username, username: user.username },
-            progress: userData.progress,
-            assessment: userData.assessment,
-            gameData: userData.gameData
-        });
-    } catch (error) {
-        console.error('登录错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
-    }
-});
-
-function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-        return res.status(401).json({ success: false, message: '未授权访问' });
-    }
-
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) {
-            return res.status(403).json({ success: false, message: '令牌无效或已过期' });
-        }
-        req.user = user;
-        next();
-    });
 }
-
-app.post('/api/progress/save', authenticateToken, (req, res) => {
-    try {
-        const { chapterId, score, stars, completed, hintsUsed, timeUsed } = req.body;
-        const userId = req.user.userId;
-
-        const userData = loadUserData(userId);
-        
-        const progressIndex = userData.progress.findIndex(p => p.chapterId === chapterId);
-        const progressData = {
-            chapterId,
-            score,
-            stars,
-            completed,
-            completedAt: completed ? new Date().toISOString() : null,
-            hintsUsed: hintsUsed || 0,
-            timeUsed: timeUsed || 0
-        };
-
-        if (progressIndex >= 0) {
-            userData.progress[progressIndex] = progressData;
-        } else {
-            userData.progress.push(progressData);
-        }
-
-        saveUserData(userId, userData);
-
-        res.json({ success: true, message: '进度已保存' });
-    } catch (error) {
-        console.error('保存进度错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
-    }
-});
-
-app.get('/api/progress', authenticateToken, async (req, res) => {
-    try {
-        const userId = req.user.userId;
-        const userData = loadUserData(userId);
-        res.json({ success: true, progress: userData.progress });
-    } catch (error) {
-        console.error('获取进度错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
-    }
-});
-
-app.post('/api/assessment/save', authenticateToken, (req, res) => {
-    try {
-        const { totalScore, ageRange, identity, answers, learningPlan, studyMaterials } = req.body;
-        const userId = req.user.userId;
-
-        const userData = loadUserData(userId);
-        userData.assessment = {
-            totalScore,
-            ageRange,
-            identity,
-            answers,
-            learningPlan,
-            studyMaterials,
-            assessmentDate: new Date().toISOString()
-        };
-
-        saveUserData(userId, userData);
-
-        res.json({ success: true, message: '评估结果已保存' });
-    } catch (error) {
-        console.error('保存评估错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
-    }
-});
-
-app.get('/api/assessment', authenticateToken, async (req, res) => {
-    try {
-        const userId = req.user.userId;
-        const userData = loadUserData(userId);
-        res.json({ success: true, assessment: userData.assessment });
-    } catch (error) {
-        console.error('获取评估错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
-    }
-});
-
-app.post('/api/game/save', authenticateToken, (req, res) => {
-    try {
-        const { level, experience, coins, outfit, skills, achievements, badges, settings, completedChapters, chapterStars, purchasedItems } = req.body;
-        const userId = req.user.userId;
-
-        const userData = loadUserData(userId);
-        userData.gameData = {
-            level: level || userData.gameData.level || 1,
-            experience: experience || userData.gameData.experience || 0,
-            coins: coins || userData.gameData.coins || 100,
-            outfit: outfit || userData.gameData.outfit || 'default',
-            skills: skills || userData.gameData.skills || {},
-            achievements: achievements || userData.gameData.achievements || [],
-            badges: badges || userData.gameData.badges || [],
-            settings: settings || userData.gameData.settings || {},
-            completedChapters: completedChapters || userData.gameData.completedChapters || [],
-            chapterStars: chapterStars || userData.gameData.chapterStars || {},
-            purchasedItems: purchasedItems || userData.gameData.purchasedItems || [],
-            lastUpdated: new Date().toISOString()
-        };
-
-        saveUserData(userId, userData);
-
-        res.json({ success: true, message: '游戏数据已保存' });
-    } catch (error) {
-        console.error('保存游戏数据错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
-    }
-});
-
-app.get('/api/game', authenticateToken, async (req, res) => {
-    try {
-        const userId = req.user.userId;
-        const userData = loadUserData(userId);
-        res.json({ success: true, gameData: userData.gameData });
-    } catch (error) {
-        console.error('获取游戏数据错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
-    }
-});
-
-app.get('/api/user/check', authenticateToken, async (req, res) => {
-    try {
-        const username = req.user.username;
-        const users = loadUsers();
-
-        if (users[username]) {
-            res.json({ success: true, exists: true, username });
-        } else {
-            res.json({ success: false, exists: false, message: '用户不存在' });
-        }
-    } catch (error) {
-        console.error('检查用户错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
-    }
-});
 
 app.post('/api/ask-ai', async (req, res) => {
     const { question, requireWebSearch = false } = req.body;
@@ -605,18 +272,108 @@ app.post('/api/ask-ai', async (req, res) => {
 });
 
 app.get('/api/knowledge-count', (req, res) => {
-    res.json({ 
-        count: auditKnowledgeBase.length,
-        timestamp: new Date().toISOString()
+    res.json({ count: auditKnowledgeBase.length });
+});
+
+const USERS_FILE = path.join(__dirname, 'users.json');
+const PROGRESS_DIR = path.join(__dirname, 'data', 'progress');
+
+function loadUsers() {
+    try {
+        if (fs.existsSync(USERS_FILE)) {
+            const data = fs.readFileSync(USERS_FILE, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (error) {
+        console.error('加载用户数据失败:', error);
+    }
+    return {};
+}
+
+function saveUsers(users) {
+    try {
+        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+    } catch (error) {
+        console.error('保存用户数据失败:', error);
+    }
+}
+
+app.post('/api/auth/register', async (req, res) => {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+        return res.json({ success: false, message: '用户名和密码不能为空' });
+    }
+    
+    const users = loadUsers();
+    
+    if (users[username]) {
+        return res.json({ success: false, message: '用户名已存在' });
+    }
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    users[username] = { password: hashedPassword };
+    saveUsers(users);
+    
+    res.json({ success: true, message: '注册成功' });
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+        return res.json({ success: false, message: '用户名和密码不能为空' });
+    }
+    
+    const users = loadUsers();
+    const user = users[username];
+    
+    if (!user) {
+        return res.json({ success: false, message: '用户名或密码错误' });
+    }
+    
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
+        return res.json({ success: false, message: '用户名或密码错误' });
+    }
+    
+    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
+    
+    res.json({ success: true, token, user: { username } });
+});
+
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) {
+        return res.status(401).json({ success: false, message: '未授权' });
+    }
+    
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ success: false, message: '无效的令牌' });
+        }
+        req.user = user;
+        next();
     });
+}
+
+app.get('/api/game/data', (req, res) => {
+    res.json(gameData);
+});
+
+app.get('/api/assessment/data', (req, res) => {
+    res.json(assessmentData);
 });
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
