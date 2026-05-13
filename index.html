@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>审计学习系统 - 融合版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="./game-data.js"></script>
+    <script src="./assessment-data.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        success: '#52C41A',
+                        warning: '#FAAD14',
+                        danger: '#FF4D4F',
+                        dark: '#1D2129',
+                        gray: '#F5F7FA'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .modal-backdrop { backdrop-filter: blur(4px); }
+        .question-card { transition: all 0.3s ease; }
+        .question-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+        .feature-card { transition: all 0.3s ease; cursor: pointer; }
+        .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1); }
+        .chapter-card { transition: all 0.3s ease; cursor: pointer; }
+        .chapter-card:hover:not(.locked) { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1); }
+        .chapter-card.locked { opacity: 0.6; cursor: not-allowed; }
+        .star { color: #d9d9d9; }
+        .star.filled { color: #faad14; }
+        .option { transition: all 0.3s; cursor: pointer; }
+        .option:hover { border-color: #1890ff; background: #f0f7ff; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        .loading-spinner { border: 3px solid #f3f3f3; border-top: 3px solid #1890ff; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .option.correct { background-color: #f6ffed; border-color: #52c41a; color: #52c41a; }
+        .option.incorrect { background-color: #fff1f0; border-color: #ff4d4f; color: #ff4d4f; }
+        .option.selected { border-color: #1890ff; background: #e6f7ff; }
+        .achievement-card { transition: all 0.3s ease; }
+        .achievement-card:hover { transform: scale(1.02); }
+        .achievement-card.locked { opacity: 0.5; filter: grayscale(1); }
+        .theater-event { transition: all 0.3s ease; }
+        .theater-event:hover { transform: translateX(5px); }
+        .case-card { transition: all 0.3s ease; cursor: pointer; }
+        .case-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+        .choice-btn { transition: all 0.2s ease; }
+        .choice-btn:hover { transform: scale(1.02); }
+        .quiz-modal { max-height: 90vh; }
+        .quiz-content { max-height: calc(90vh - 180px); overflow-y: auto; }
+        @keyframes correctFlash {
+            0%, 100% { background-color: #f6ffed; }
+            50% { background-color: #b7eb8f; }
+        }
+        @keyframes incorrectShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .correct-flash { animation: correctFlash 0.5s ease-in-out 2; }
+        .incorrect-shake { animation: incorrectShake 0.3s ease-in-out; }
+        
+        /* 新题型样式 */
+        .drag-item {
+            cursor: grab;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        .drag-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .drag-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+        .drop-zone {
+            min-height: 100px;
+            border: 2px dashed #d9d9d9;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        .drop-zone.drag-over {
+            border-color: #1890ff;
+            background: #f0f7ff;
+        }
+        .drop-zone.correct {
+            border-color: #52c41a;
+            background: #f6ffed;
+        }
+        .drop-zone.incorrect {
+            border-color: #ff4d4f;
+            background: #fff1f0;
+        }
+        
+        /* 连线题样式 */
+        .match-item {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .match-item:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .match-item.selected {
+            border-color: #1890ff;
+            background: #e6f7ff;
+        }
+        .match-item.connected {
+            border-color: #52c41a;
+            background: #f6ffed;
+        }
+        .match-line {
+            stroke: #1890ff;
+            stroke-width: 3;
+            fill: none;
+            transition: all 0.3s ease;
+        }
+        .match-line.correct {
+            stroke: #52c41a;
+        }
+        .match-line.incorrect {
+            stroke: #ff4d4f;
+        }
+        
+        /* 排序题样式 */
+        .sort-item {
+            cursor: move;
+            transition: all 0.3s ease;
+        }
+        .sort-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .sort-item.dragging {
+            opacity: 0.5;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+        .sort-item .order-badge {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #165DFF, #36CFC9);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        /* 填空题样式 */
+        .fill-blank-input {
+            border-bottom: 2px solid #d9d9d9;
+            background: transparent;
+            padding: 4px 8px;
+            min-width: 200px;
+            transition: all 0.3s ease;
+        }
+        .fill-blank-input:focus {
+            border-bottom-color: #1890ff;
+            outline: none;
+        }
+        
+        /* 反馈动画 */
+        @keyframes successPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        @keyframes failShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+        .success-pulse { animation: successPulse 0.5s ease-in-out; }
+        .fail-shake { animation: failShake 0.4s ease-in-out; }
+        
+        /* 连线SVG容器 */
+        .match-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+    <div id="app">
+        <div id="loading-screen" class="fixed inset-0 bg-white flex items-center justify-center z-50">
+            <div class="text-center">
+                <div class="loading-spinner w-16 h-16 mx-auto mb-4"></div>
+                <p class="text-gray-600 text-lg">加载中...</p>
+            </div>
+        </div>
+
+        <!-- 登录/注册界面 -->
+        <div id="auth-screen" class="fixed inset-0 bg-gradient-to-br from-primary/5 via-white to-blue-50 flex items-center justify-center z-50">
+            <div class="w-full max-w-md mx-4">
+                <div class="bg-white rounded-3xl shadow-2xl p-8">
+                    <div class="text-center mb-8">
+                        <div class="w-20 h-20 bg-gradient-to-br from-primary to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                            <i class="fa fa-balance-scale text-white text-3xl"></i>
+                        </div>
+                        <h1 class="text-2xl font-bold text-dark">审计学习系统</h1>
+                        <p class="text-gray-500">游戏化学习体验</p>
+                    </div>
+
+                    <!-- 登录表单 -->
+                    <div id="login-form">
+                        <h2 class="text-xl font-bold text-dark mb-6 text-center">欢迎回来</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">用户名</label>
+                                <input type="text" id="login-username" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all" placeholder="请输入用户名">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">密码</label>
+                                <input type="password" id="login-password" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all" placeholder="请输入密码">
+                            </div>
+                        </div>
+                        <button id="login-btn" onclick="app.login()" class="w-full mt-6 py-4 bg-gradient-to-r from-primary to-blue-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary/30 transition-all disabled:opacity-50">
+                            <i class="fa fa-sign-in mr-2"></i>登录
+                        </button>
+                        <p class="text-center text-gray-500 text-sm mt-4">
+                            还没有账号？<button onclick="app.showRegister()" class="text-primary hover:underline">立即注册</button>
+                        </p>
+                    </div>
+
+                    <!-- 注册表单 -->
+                    <div id="register-form" class="hidden">
+                        <h2 class="text-xl font-bold text-dark mb-6 text-center">创建账号</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">用户名</label>
+                                <input type="text" id="reg-username" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all" placeholder="请输入用户名">
+                                <p id="reg-suggestion" class="text-xs text-blue-500 mt-1 hidden"></p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">密码</label>
+                                <input type="password" id="reg-password" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all" placeholder="请输入密码（至少6位）">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">邮箱（选填）</label>
+                                <input type="email" id="reg-email" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all" placeholder="请输入邮箱">
+                            </div>
+                        </div>
+                        <button id="register-btn" onclick="app.register()" class="w-full mt-6 py-4 bg-gradient-to-r from-secondary to-teal-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-secondary/30 transition-all disabled:opacity-50">
+                            <i class="fa fa-user-plus mr-2"></i>注册
+                        </button>
+                        <p class="text-center text-gray-500 text-sm mt-4">
+                            已有账号？<button onclick="app.showLogin()" class="text-primary hover:underline">立即登录</button>
+                        </p>
+                    </div>
+
+                    <!-- 错误提示 -->
+                    <div id="auth-error" class="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-center hidden">
+                        <i class="fa fa-exclamation-circle mr-2"></i><span id="error-message">登录失败</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="main-app" class="hidden">
+            <header class="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-40 border-b border-gray-100">
+                <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-primary to-blue-400 rounded-xl flex items-center justify-center">
+                            <i class="fa fa-balance-scale text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-dark">审计学习系统</h1>
+                            <p class="text-xs text-gray-500">游戏化学习体验</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="flex items-center gap-2 px-4 py-2 bg-yellow-50 rounded-full">
+                            <i class="fa fa-coins text-yellow-500"></i>
+                            <span id="user-coins" class="font-bold text-yellow-600">0</span>
+                        </div>
+                        <div class="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full">
+                            <i class="fa fa-star text-primary"></i>
+                            <span id="user-level" class="font-bold text-primary">审计实习生</span>
+                        </div>
+                        <button onclick="app.logout()" class="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-all">
+                            <i class="fa fa-sign-out mr-1"></i>退出
+                        </button>
+                    </div>
+                </div>
+                <nav class="container mx-auto px-4 pb-4 flex gap-2 overflow-x-auto">
+                    <button data-tab="home" class="tab-btn px-6 py-2.5 rounded-xl font-medium transition-all bg-gradient-to-r from-primary to-blue-500 text-white shadow-lg shadow-primary/30">
+                        <i class="fa fa-home mr-2"></i>首页
+                    </button>
+                    <button data-tab="assessment" class="tab-btn px-6 py-2.5 rounded-xl font-medium transition-all text-gray-600 hover:bg-gray-100">
+                        <i class="fa fa-clipboard-check mr-2"></i>能力评估
+                    </button>
+                    <button data-tab="game" class="tab-btn px-6 py-2.5 rounded-xl font-medium transition-all text-gray-600 hover:bg-gray-100">
+                        <i class="fa fa-graduation-cap mr-2"></i>闯关学习
+                    </button>
+                    <button data-tab="achievements" class="tab-btn px-6 py-2.5 rounded-xl font-medium transition-all text-gray-600 hover:bg-gray-100">
+                        <i class="fa fa-trophy mr-2"></i>成就
+                    </button>
+                </nav>
+            </header>
+
+            <main class="container mx-auto px-4 py-8">
+                <div id="home-tab" class="tab-content fade-in">
+                    <section class="max-w-5xl mx-auto">
+                        <div class="bg-white rounded-2xl shadow-xl p-8 mb-8 text-center relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary/10 to-transparent rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                            <div class="relative">
+                                <h2 class="text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-dark mb-4">
+                                    欢迎来到审计学习系统
+                                </h2>
+                                <p class="text-gray-600 text-lg mb-8 max-w-2xl mx-auto">
+                                    融合游戏闯关与专业评估，通过沉浸式学习体验助你成为审计高手
+                                </p>
+                                <div class="grid md:grid-cols-3 gap-6 mb-8">
+                                    <div class="feature-card bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 rounded-xl border border-blue-100">
+                                        <div class="w-14 h-14 bg-gradient-to-br from-primary to-blue-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                            <i class="fa fa-gamepad text-white text-2xl"></i>
+                                        </div>
+                                        <h3 class="font-bold text-dark mb-2">游戏化闯关</h3>
+                                        <p class="text-sm text-gray-600">通过章节闯关学习审计知识</p>
+                                    </div>
+                                    <div class="feature-card bg-gradient-to-br from-teal-50 to-teal-100/50 p-6 rounded-xl border border-teal-100">
+                                        <div class="w-14 h-14 bg-gradient-to-br from-secondary to-teal-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                            <i class="fa fa-clipboard-list text-white text-2xl"></i>
+                                        </div>
+                                        <h3 class="font-bold text-dark mb-2">专业能力评估</h3>
+                                        <p class="text-sm text-gray-600">评估自身能力水平</p>
+                                    </div>
+                                    <div class="feature-card bg-gradient-to-br from-purple-50 to-purple-100/50 p-6 rounded-xl border border-purple-100">
+                                        <div class="w-14 h-14 bg-gradient-to-br from-accent to-purple-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                            <i class="fa fa-theater-masks text-white text-2xl"></i>
+                                        </div>
+                                        <h3 class="font-bold text-dark mb-2">审计剧场</h3>
+                                        <p class="text-sm text-gray-600">体验审计师职业生涯</p>
+                                    </div>
+                                </div>
+                                <div class="flex justify-center gap-4 flex-wrap">
+                                    <button onclick="app.switchTab('assessment')" class="px-8 py-4 bg-gradient-to-r from-primary to-blue-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary/30 transition-all flex items-center gap-2">
+                                        <i class="fa fa-play"></i>开始能力评估
+                                    </button>
+                                    <button onclick="app.switchTab('game')" class="px-8 py-4 bg-gradient-to-r from-secondary to-teal-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-secondary/30 transition-all flex items-center gap-2">
+                                        <i class="fa fa-graduation-cap"></i>开始闯关
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="bg-white rounded-xl shadow-lg p-6">
+                                <h3 class="text-lg font-bold text-dark mb-4 flex items-center gap-2">
+                                    <i class="fa fa-fire text-orange-500"></i>学习进度
+                                </h3>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-600">已完成章节</span>
+                                        <span id="completed-chapters" class="font-bold text-primary">0 / 6</span>
+                                    </div>
+                                    <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                        <div id="chapter-progress" class="h-full bg-gradient-to-r from-primary to-blue-500 transition-all" style="width: 0%"></div>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-600">已获成就</span>
+                                        <span id="earned-achievements" class="font-bold text-accent">0 / 20</span>
+                                    </div>
+                                    <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                        <div id="achievement-progress" class="h-full bg-gradient-to-r from-accent to-purple-500 transition-all" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-xl shadow-lg p-6">
+                                <h3 class="text-lg font-bold text-dark mb-4 flex items-center gap-2">
+                                    <i class="fa fa-bolt text-yellow-500"></i>快速开始
+                                </h3>
+                                <div class="space-y-3">
+                                    <button onclick="app.switchTab('game'); setTimeout(() => app.showGameView('chapters'), 100);" class="w-full p-4 bg-blue-50 hover:bg-blue-100 rounded-xl text-left transition-all flex items-center gap-4">
+                                        <div class="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center">
+                                            <i class="fa fa-graduation-cap text-primary text-xl"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-medium text-dark">审计任务</h4>
+                                            <p class="text-sm text-gray-500">开始章节闯关学习</p>
+                                        </div>
+                                        <i class="fa fa-chevron-right text-gray-400 ml-auto"></i>
+                                    </button>
+                                    <button onclick="app.switchTab('game'); setTimeout(() => app.showGameView('theater'), 100);" class="w-full p-4 bg-teal-50 hover:bg-teal-100 rounded-xl text-left transition-all flex items-center gap-4">
+                                        <div class="w-12 h-12 bg-secondary/20 rounded-xl flex items-center justify-center">
+                                            <i class="fa fa-theater-masks text-secondary text-xl"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-medium text-dark">审计剧场</h4>
+                                            <p class="text-sm text-gray-500">体验职业旅程</p>
+                                        </div>
+                                        <i class="fa fa-chevron-right text-gray-400 ml-auto"></i>
+                                    </button>
+                                    <button onclick="app.switchTab('game'); setTimeout(() => app.showGameView('cases'), 100);" class="w-full p-4 bg-pink-50 hover:bg-pink-100 rounded-xl text-left transition-all flex items-center gap-4">
+                                        <div class="w-12 h-12 bg-pink-100/50 rounded-xl flex items-center justify-center">
+                                            <i class="fa fa-file-contract text-pink-500 text-xl"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-medium text-dark">案例分析</h4>
+                                            <p class="text-sm text-gray-500">学习真实审计案例</p>
+                                        </div>
+                                        <i class="fa fa-chevron-right text-gray-400 ml-auto"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div id="assessment-tab" class="tab-content hidden">
+                    <section class="max-w-4xl mx-auto">
+                        <div id="assessment-start" class="bg-white rounded-2xl shadow-xl p-8 text-center fade-in">
+                            <div class="w-20 h-20 bg-gradient-to-br from-primary to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                                <i class="fa fa-clipboard-check text-white text-3xl"></i>
+                            </div>
+                            <h2 class="text-2xl font-bold text-dark mb-4">审计新人能力评估</h2>
+                            <p class="text-gray-600 mb-8 max-w-lg mx-auto">
+                                通过能力评估，我们将为你量身定制学习路径，帮助你更有针对性地提升审计能力
+                            </p>
+                            <div class="grid md:grid-cols-3 gap-4 mb-8 text-left">
+                                <div class="p-4 bg-blue-50 rounded-xl">
+                                    <i class="fa fa-clock text-primary mb-2"></i>
+                                    <h4 class="font-medium text-dark">约10分钟</h4>
+                                    <p class="text-sm text-gray-500">完成全部评估</p>
+                                </div>
+                                <div class="p-4 bg-teal-50 rounded-xl">
+                                    <i class="fa fa-chart-pie text-secondary mb-2"></i>
+                                    <h4 class="font-medium text-dark">10道题目</h4>
+                                    <p class="text-sm text-gray-500">覆盖核心领域</p>
+                                </div>
+                                <div class="p-4 bg-purple-50 rounded-xl">
+                                    <i class="fa fa-road text-accent mb-2"></i>
+                                    <h4 class="font-medium text-dark">专属计划</h4>
+                                    <p class="text-sm text-gray-500">个性化学习路径</p>
+                                </div>
+                            </div>
+                            <button onclick="app.startAssessment()" class="px-10 py-4 bg-gradient-to-r from-primary to-blue-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary/30 transition-all">
+                                <i class="fa fa-play mr-2"></i>开始评估测试
+                            </button>
+                        </div>
+
+                        <div id="assessment-questions" class="hidden fade-in">
+                            <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+                                <div class="mb-6">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <span class="text-sm text-gray-500">第 <span id="current-q" class="font-bold text-primary">1</span> / <span id="total-q" class="font-bold">10</span> 题</span>
+                                        <span id="q-category" class="text-xs px-3 py-1.5 bg-primary/10 text-primary rounded-full"></span>
+                                    </div>
+                                    <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                        <div id="progress-bar" class="h-full bg-gradient-to-r from-primary to-blue-500 transition-all duration-500" style="width: 10%"></div>
+                                    </div>
+                                </div>
+                                <h4 id="q-text" class="text-lg font-medium text-dark mb-8 leading-relaxed"></h4>
+                                <div id="q-options" class="space-y-3"></div>
+                            </div>
+                            <div class="text-center">
+                                <button id="next-btn" onclick="app.nextQuestion()" class="px-10 py-4 bg-gradient-to-r from-primary to-blue-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none" disabled>
+                                    <i class="fa fa-arrow-right mr-2"></i>下一题
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="assessment-result" class="hidden fade-in">
+                            <div class="bg-white rounded-2xl shadow-xl p-8 mb-8 text-center">
+                                <h3 class="text-2xl font-bold text-dark mb-6">评估结果</h3>
+                                <div class="inline-block relative w-48 h-48 mb-6">
+                                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                                        <circle cx="50" cy="50" r="45" fill="none" stroke="#E5E7EB" stroke-width="8"></circle>
+                                        <circle id="score-circle" cx="50" cy="50" r="45" fill="none" stroke="url(#gradient)" stroke-width="8" stroke-linecap="round" transform="rotate(-90 50 50)" stroke-dasharray="283" stroke-dashoffset="283"></circle>
+                                        <defs>
+                                            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                <stop offset="0%" stop-color="#165DFF"/>
+                                                <stop offset="100%" stop-color="#36CFC9"/>
+                                            </linearGradient>
+                                        </defs>
+                                    </svg>
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <div>
+                                            <span id="final-score" class="text-4xl font-bold text-primary">0</span>
+                                            <span class="text-lg text-gray-500">分</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p id="score-desc" class="text-gray-600 text-lg"></p>
+                            </div>
+
+                            <div id="learning-plan" class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+                                <h3 class="text-xl font-bold text-dark mb-6 flex items-center gap-2">
+                                    <i class="fa fa-road text-primary"></i>你的专属学习计划
+                                </h3>
+                                <div id="plan-items" class="space-y-4"></div>
+                            </div>
+
+                            <div class="bg-white rounded-2xl shadow-xl p-8">
+                                <h3 class="text-xl font-bold text-dark mb-6 flex items-center gap-2">
+                                    <i class="fa fa-book text-secondary"></i>推荐学习资料
+                                </h3>
+                                <div id="materials-list" class="space-y-4"></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div id="game-tab" class="tab-content hidden">
+                    <section class="max-w-6xl mx-auto">
+                        <div class="mb-8 flex flex-wrap gap-3 justify-center">
+                            <button onclick="app.showGameView('chapters')" class="game-view-btn px-6 py-3 bg-gradient-to-r from-primary to-blue-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary/30 transition-all flex items-center gap-2" data-view="chapters">
+                                <i class="fa fa-graduation-cap"></i>审计任务
+                            </button>
+                            <button onclick="app.showGameView('shop')" class="game-view-btn px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-yellow-500/30 transition-all flex items-center gap-2" data-view="shop">
+                                <i class="fa fa-store"></i>事务所商店
+                            </button>
+                            <button onclick="app.showGameView('achievements')" class="game-view-btn px-6 py-3 bg-gradient-to-r from-accent to-purple-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-accent/30 transition-all flex items-center gap-2" data-view="achievements">
+                                <i class="fa fa-trophy"></i>荣誉墙
+                            </button>
+                            <button onclick="app.showGameView('theater')" class="game-view-btn px-6 py-3 bg-gradient-to-r from-secondary to-teal-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-secondary/30 transition-all flex items-center gap-2" data-view="theater">
+                                <i class="fa fa-theater-masks"></i>审计剧场
+                            </button>
+                            <button onclick="app.showGameView('cases')" class="game-view-btn px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-pink-500/30 transition-all flex items-center gap-2" data-view="cases">
+                                <i class="fa fa-file-contract"></i>案例分析
+                            </button>
+                        </div>
+
+                        <div id="game-chapters-view" class="fade-in">
+                            <div id="chapter-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                        </div>
+
+                        <div id="game-shop-view" class="hidden fade-in">
+                            <div class="bg-white rounded-2xl shadow-xl p-8">
+                                <div class="flex items-center justify-between mb-6">
+                                    <h3 class="text-2xl font-bold text-dark flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center">
+                                            <i class="fa fa-store text-white text-xl"></i>
+                                        </div>
+                                        事务所商店
+                                    </h3>
+                                    <div class="px-5 py-2.5 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-full flex items-center gap-2">
+                                        <i class="fa fa-coins text-yellow-500"></i>
+                                        <span class="font-bold text-yellow-600"><span id="shop-coins">0</span> 金币</span>
+                                    </div>
+                                </div>
+                                <div id="shop-items" class="grid md:grid-cols-2 gap-6"></div>
+                            </div>
+                        </div>
+
+                        <div id="game-achievements-view" class="hidden fade-in">
+                            <div class="bg-white rounded-2xl shadow-xl p-8">
+                                <h3 class="text-2xl font-bold text-dark mb-2 flex items-center gap-3">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-accent to-purple-500 rounded-xl flex items-center justify-center">
+                                        <i class="fa fa-trophy text-white text-xl"></i>
+                                    </div>
+                                    荣誉墙
+                                </h3>
+                                <p class="text-gray-500 mb-6">解锁属于你的审计人生结局</p>
+                                <div id="achievements-grid" class="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                            </div>
+                        </div>
+
+                        <div id="game-theater-view" class="hidden fade-in">
+                            <div class="bg-white rounded-2xl shadow-xl p-8">
+                                <h3 class="text-2xl font-bold text-dark mb-2 flex items-center gap-3">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-secondary to-teal-500 rounded-xl flex items-center justify-center">
+                                        <i class="fa fa-theater-masks text-white text-xl"></i>
+                                    </div>
+                                    审计剧场
+                                </h3>
+                                <p class="text-gray-500 mb-6">体验审计师的职业生涯，每一个选择都将影响你的未来</p>
+                                <div id="theater-events" class="space-y-4"></div>
+                            </div>
+                        </div>
+
+                        <div id="game-cases-view" class="hidden fade-in">
+                            <div class="bg-white rounded-2xl shadow-xl p-8">
+                                <h3 class="text-2xl font-bold text-dark mb-6 flex items-center gap-3">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl flex items-center justify-center">
+                                        <i class="fa fa-file-contract text-white text-xl"></i>
+                                    </div>
+                                    审计实际案例分析
+                                </h3>
+                                <div id="case-list" class="grid md:grid-cols-2 gap-6"></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div id="achievements-tab" class="tab-content hidden">
+                    <section class="max-w-5xl mx-auto">
+                        <div class="bg-white rounded-2xl shadow-xl p-8">
+                            <h3 class="text-2xl font-bold text-dark mb-6 flex items-center gap-3">
+                                <div class="w-12 h-12 bg-gradient-to-br from-accent to-purple-500 rounded-xl flex items-center justify-center">
+                                    <i class="fa fa-trophy text-white text-xl"></i>
+                                </div>
+                                成就一览
+                            </h3>
+                            <div id="all-achievements" class="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="quiz-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop bg-black/40 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 quiz-modal overflow-hidden">
+            <div class="p-6 border-b border-gray-100 bg-gradient-to-r from-primary/5 to-blue-50 sticky top-0 z-10">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 id="chapter-title" class="text-xl font-bold text-dark"></h3>
+                        <p class="text-sm text-gray-500" id="chapter-progress"></p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div id="chapter-stars" class="flex gap-1"></div>
+                        <button onclick="app.closeQuiz()" class="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors">
+                            <i class="fa fa-times text-gray-400"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div id="quiz-progress-bar" class="h-full bg-gradient-to-r from-primary to-blue-500 transition-all" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="p-6 quiz-content">
+                <div id="quiz-content" class="space-y-6"></div>
+            </div>
+            <div class="p-6 border-t border-gray-100 bg-gray-50 sticky bottom-0">
+                <div class="flex items-center justify-between">
+                    <button id="quiz-hint" onclick="app.showHint()" class="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-all">
+                        <i class="fa fa-lightbulb mr-2"></i>提示
+                    </button>
+                    <button id="quiz-submit" onclick="app.handleQuizSubmit()" class="px-8 py-3 bg-gradient-to-r from-primary to-blue-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-check mr-2"></i>确认答案
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="case-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop bg-black/40 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 bg-gradient-to-r from-pink-500/5 to-rose-50 sticky top-0 z-10">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 id="case-title" class="text-xl font-bold text-dark"></h3>
+                        <p class="text-sm text-gray-500" id="case-subtitle"></p>
+                    </div>
+                    <button onclick="app.closeCase()" class="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors">
+                        <i class="fa fa-times text-gray-400"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="case-content" class="p-6"></div>
+        </div>
+    </div>
+
+    <div id="theater-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop bg-black/40 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 bg-gradient-to-r from-secondary/5 to-teal-50 sticky top-0 z-10">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 id="theater-title" class="text-xl font-bold text-dark"></h3>
+                        <p class="text-sm text-gray-500" id="theater-subtitle"></p>
+                    </div>
+                    <button onclick="app.closeTheater()" class="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors">
+                        <i class="fa fa-times text-gray-400"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="theater-content" class="p-6"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-8 right-8 bg-gradient-to-r from-gray-900 to-gray-800 text-white px-6 py-4 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all z-[9999] flex items-start gap-3 max-w-md">
+        <i id="toast-icon" class="fa fa-check-circle mt-0.5 flex-shrink-0"></i>
+        <div class="flex-1">
+            <span id="toast-message" class="text-sm leading-relaxed block"></span>
+        </div>
+    </div>
+
+    <script>
+        class AuditLearningApp {
+            constructor() {
+                this.currentView = 'chapters';
+                this.gameState = {
+                    coins: 0,
+                    completedChapters: [],
+                    chapterStars: {},
+                    purchasedItems: [],
+                    unlockedAchievements: [],
+                    theaterStats: { wisdom: 50, courage: 50, principle: 50, network: 50, money: 50, family: 50, health: 100, pressure: 30 },
+                    currentTheaterEvent: 0,
+                    currentCase: null
+                };
+                this.assessmentState = {
+                    currentQuestion: 0,
+                    answers: [],
+                    score: 0
+                };
+                this.currentChapter = null;
+                this.currentQuestionIndex = 0;
+                this.chapterAnswers = [];
+                this.selectedAnswer = null;
+                this.init();
+            }
+
+            init() {
+                document.getElementById('loading-screen').classList.add('hidden');
+                this.bindEvents();
+                this.checkAuth();
+            }
+
+            checkAuth() {
+                const token = localStorage.getItem('audit_token');
+                if (token) {
+                    this.verifyToken(token);
+                } else {
+                    document.getElementById('auth-screen').classList.remove('hidden');
+                }
+            }
+
+            async verifyToken(token) {
+                try {
+                    const response = await fetch('/api/user/check', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        this.currentUser = data.username;
+                        await this.loadUserData();
+                        this.showMainApp();
+                    } else {
+                        localStorage.removeItem('audit_token');
+                        document.getElementById('auth-screen').classList.remove('hidden');
+                    }
+                } catch {
+                    localStorage.removeItem('audit_token');
+                    document.getElementById('auth-screen').classList.remove('hidden');
+                }
+            }
+
+            async login() {
+                const username = document.getElementById('login-username').value.trim();
+                const password = document.getElementById('login-password').value;
+
+                if (!username || !password) {
+                    this.showAuthError('请输入用户名和密码');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        localStorage.setItem('audit_token', data.token);
+                        this.currentUser = data.user.username;
+                        
+                        if (data.gameData) {
+                            this.gameState.coins = data.gameData.coins || 0;
+                            this.gameState.completedChapters = data.gameData.completedChapters || [];
+                            this.gameState.chapterStars = data.gameData.chapterStars || {};
+                            this.gameState.purchasedItems = data.gameData.purchasedItems || [];
+                            this.gameState.unlockedAchievements = data.gameData.achievements || [];
+                        }
+                        
+                        if (data.progress) {
+                            this.gameState.completedChapters = data.progress.map(p => p.chapterId) || [];
+                        }
+
+                        this.showMainApp();
+                    } else {
+                        this.showAuthError(data.message || '登录失败');
+                    }
+                } catch (error) {
+                    this.showAuthError('网络错误，请稍后重试');
+                }
+            }
+
+            async register() {
+                const username = document.getElementById('reg-username').value.trim();
+                const password = document.getElementById('reg-password').value;
+                const email = document.getElementById('reg-email').value.trim();
+
+                if (!username || !password) {
+                    this.showAuthError('请输入用户名和密码');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    this.showAuthError('密码长度至少为6位');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password, email })
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        localStorage.setItem('audit_token', data.token);
+                        this.currentUser = data.user.username;
+                        this.showMainApp();
+                    } else {
+                        this.showAuthError(data.message || '注册失败');
+                        if (data.suggestion) {
+                            document.getElementById('reg-suggestion').textContent = '建议用户名: ' + data.suggestion;
+                            document.getElementById('reg-suggestion').classList.remove('hidden');
+                        }
+                    }
+                } catch (error) {
+                    this.showAuthError('网络错误，请稍后重试');
+                }
+            }
+
+            showLogin() {
+                document.getElementById('login-form').classList.remove('hidden');
+                document.getElementById('register-form').classList.add('hidden');
+                document.getElementById('auth-error').classList.add('hidden');
+                document.getElementById('reg-suggestion').classList.add('hidden');
+            }
+
+            showRegister() {
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('register-form').classList.remove('hidden');
+                document.getElementById('auth-error').classList.add('hidden');
+                document.getElementById('reg-suggestion').classList.add('hidden');
+            }
+
+            showAuthError(message) {
+                document.getElementById('error-message').textContent = message;
+                document.getElementById('auth-error').classList.remove('hidden');
+            }
+
+            showMainApp() {
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                this.updateUI();
+            }
+
+            logout() {
+                localStorage.removeItem('audit_token');
+                this.currentUser = null;
+                this.gameState = {
+                    coins: 0,
+                    completedChapters: [],
+                    chapterStars: {},
+                    purchasedItems: [],
+                    unlockedAchievements: [],
+                    theaterStats: { wisdom: 50, courage: 50, principle: 50, network: 50, money: 50, family: 50, health: 100, pressure: 30 },
+                    currentTheaterEvent: 0,
+                    currentCase: null
+                };
+                document.getElementById('main-app').classList.add('hidden');
+                document.getElementById('auth-screen').classList.remove('hidden');
+                document.getElementById('login-form').classList.remove('hidden');
+                document.getElementById('register-form').classList.add('hidden');
+            }
+
+            async loadUserData() {
+                const token = localStorage.getItem('audit_token');
+                if (!token) return;
+
+                try {
+                    const response = await fetch('/api/game', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await response.json();
+                    if (data.success && data.gameData) {
+                        const gd = data.gameData;
+                        this.gameState.coins = gd.coins || 0;
+                        this.gameState.completedChapters = gd.completedChapters || [];
+                        this.gameState.chapterStars = gd.chapterStars || {};
+                        this.gameState.purchasedItems = gd.purchasedItems || [];
+                        this.gameState.unlockedAchievements = gd.achievements || [];
+                    }
+                } catch {
+                    console.log('加载用户数据失败');
+                }
+            }
+
+            async saveUserData() {
+                const token = localStorage.getItem('audit_token');
+                if (!token) return;
+
+                try {
+                    await fetch('/api/game/save', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            coins: this.gameState.coins,
+                            achievements: this.gameState.unlockedAchievements,
+                            badges: this.gameState.purchasedItems
+                        })
+                    });
+                } catch {
+                    console.log('保存用户数据失败');
+                }
+            }
+
+            loadData() {
+                const saved = localStorage.getItem('audit_game_state');
+                if (saved) {
+                    this.gameState = { ...this.gameState, ...JSON.parse(saved) };
+                }
+            }
+
+            saveData() {
+                localStorage.setItem('audit_game_state', JSON.stringify(this.gameState));
+                this.saveUserData();
+            }
+
+            bindEvents() {
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+                });
+            }
+
+            switchTab(tabName) {
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('bg-gradient-to-r', 'from-primary', 'to-blue-500', 'text-white', 'shadow-lg', 'shadow-primary/30');
+                    btn.classList.add('text-gray-600', 'hover:bg-gray-100');
+                });
+                const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+                activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-100');
+                activeBtn.classList.add('bg-gradient-to-r', 'from-primary', 'to-blue-500', 'text-white', 'shadow-lg', 'shadow-primary/30');
+
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+                document.getElementById(`${tabName}-tab`).classList.remove('hidden');
+                document.getElementById(`${tabName}-tab`).classList.add('fade-in');
+
+                if (tabName === 'game') {
+                    this.showGameView('chapters');
+                }
+                if (tabName === 'achievements') {
+                    this.renderAllAchievements();
+                }
+                if (tabName === 'home') {
+                    this.updateHomeProgress();
+                }
+            }
+
+            showGameView(view) {
+                this.currentView = view;
+                document.querySelectorAll('.game-view-btn').forEach(btn => {
+                    btn.classList.remove('ring-2', 'ring-white');
+                });
+                const activeBtn = document.querySelector(`[data-view="${view}"]`);
+                if (activeBtn) activeBtn.classList.add('ring-2', 'ring-white');
+
+                document.getElementById('game-chapters-view').classList.add('hidden');
+                document.getElementById('game-shop-view').classList.add('hidden');
+                document.getElementById('game-achievements-view').classList.add('hidden');
+                document.getElementById('game-theater-view').classList.add('hidden');
+                document.getElementById('game-cases-view').classList.add('hidden');
+
+                switch(view) {
+                    case 'chapters':
+                        document.getElementById('game-chapters-view').classList.remove('hidden');
+                        this.renderChapters();
+                        break;
+                    case 'shop':
+                        document.getElementById('game-shop-view').classList.remove('hidden');
+                        this.renderShop();
+                        break;
+                    case 'achievements':
+                        document.getElementById('game-achievements-view').classList.remove('hidden');
+                        this.renderAchievements();
+                        break;
+                    case 'theater':
+                        document.getElementById('game-theater-view').classList.remove('hidden');
+                        this.renderTheater();
+                        break;
+                    case 'cases':
+                        document.getElementById('game-cases-view').classList.remove('hidden');
+                        this.renderCases();
+                        break;
+                }
+            }
+
+            updateUI() {
+                document.getElementById('user-coins').textContent = this.gameState.coins;
+                document.getElementById('shop-coins').textContent = this.gameState.coins;
+                document.getElementById('user-level').textContent = this.getUserLevel();
+            }
+
+            updateHomeProgress() {
+                const completedCount = this.gameState.completedChapters.length;
+                const totalChapters = gameChapters.length;
+                document.getElementById('completed-chapters').textContent = `${completedCount} / ${totalChapters}`;
+                document.getElementById('chapter-progress').style.width = `${(completedCount / totalChapters) * 100}%`;
+                
+                const earnedCount = this.gameState.unlockedAchievements.length;
+                const totalAchievements = achievements.length;
+                document.getElementById('earned-achievements').textContent = `${earnedCount} / ${totalAchievements}`;
+                document.getElementById('achievement-progress').style.width = `${(earnedCount / totalAchievements) * 100}%`;
+            }
+
+            getUserLevel() {
+                const score = this.gameState.coins;
+                if (score < 100) return '审计实习生';
+                if (score < 300) return '助理审计';
+                if (score < 600) return '初级审计员';
+                if (score < 1000) return '中级审计员';
+                return '高级审计员';
+            }
+
+            renderChapters() {
+                const container = document.getElementById('chapter-list');
+                container.innerHTML = gameChapters.map(chapter => {
+                    const isCompleted = this.gameState.completedChapters.includes(chapter.id);
+                    const stars = this.gameState.chapterStars[chapter.id] || 0;
+                    const isUnlocked = chapter.id === 'tutorial' || this.gameState.completedChapters.includes('tutorial');
+                    
+                    return `
+                        <div class="chapter-card bg-white p-6 rounded-2xl shadow-lg ${isCompleted ? 'ring-2 ring-green-500' : ''} ${!isUnlocked ? 'locked' : ''}" onclick="${isUnlocked ? `app.openChapter('${chapter.id}')` : ''}">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="flex items-center gap-3">
+                                    ${isUnlocked ? `
+                                        <div class="w-14 h-14 rounded-xl flex items-center justify-center ${isCompleted ? 'bg-gradient-to-br from-green-400 to-green-500' : 'bg-gradient-to-br from-primary to-blue-500'} shadow-lg">
+                                            <span class="text-white font-bold text-lg">${chapter.id === 'tutorial' ? '0' : chapter.id.replace('chapter', '')}</span>
+                                        </div>
+                                    ` : `
+                                        <div class="w-14 h-14 rounded-xl bg-gray-200 flex items-center justify-center">
+                                            <i class="fa fa-lock text-gray-400 text-xl"></i>
+                                        </div>
+                                    `}
+                                </div>
+                                ${isCompleted ? `
+                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                                        <i class="fa fa-check text-white"></i>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <h4 class="font-bold text-lg mb-2">${chapter.title}</h4>
+                            <p class="text-sm text-gray-500 mb-4">${chapter.description}</p>
+                            <div class="flex items-center justify-between">
+                                <span class="px-3 py-1 text-xs rounded-full ${chapter.difficulty === '简单' ? 'bg-green-100 text-green-700' : chapter.difficulty === '中等' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}">${chapter.difficulty}</span>
+                                <div class="flex gap-0.5">
+                                    ${[1,2,3].map(i => `<i class="fa fa-star text-sm ${i <= stars ? 'text-yellow-400' : 'text-gray-300'}"></i>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            openChapter(chapterId) {
+                const chapter = gameChapters.find(c => c.id === chapterId);
+                if (!chapter) return;
+
+                this.currentChapter = chapter;
+                this.currentQuestionIndex = 0;
+                this.chapterAnswers = [];
+                this.selectedAnswer = null;
+
+                const questions = gameQuestions[chapterId];
+                if (!questions || questions.length === 0) {
+                    this.showToast('暂无题目数据', 'warning');
+                    return;
+                }
+
+                document.getElementById('chapter-title').textContent = chapter.title;
+                document.getElementById('chapter-progress').textContent = `共 ${questions.length} 题`;
+                document.getElementById('chapter-stars').innerHTML = [1,2,3].map(() => '<i class="fa fa-star text-yellow-400"></i>').join('');
+                
+                this.renderQuiz(questions);
+                document.getElementById('quiz-modal').classList.remove('hidden');
+                document.getElementById('quiz-modal').classList.add('fade-in');
+            }
+
+            renderQuiz(questions) {
+                this.selectedAnswer = null;
+                this.matchSelections = null;
+                this.sortOrder = null;
+                this.userClassifications = {};
+                
+                const container = document.getElementById('quiz-content');
+                const q = questions[this.currentQuestionIndex];
+                const total = questions.length;
+                const progress = ((this.currentQuestionIndex) / total) * 100;
+                document.getElementById('quiz-progress-bar').style.width = `${progress}%`;
+                
+                let questionHtml = '';
+                
+                switch(q.type) {
+                    case 'truefalse':
+                        questionHtml = this.renderTrueFalseQuestion(q);
+                        break;
+                    case 'multiplechoice':
+                        questionHtml = this.renderMultipleChoiceQuestion(q);
+                        break;
+                    case 'match':
+                        questionHtml = this.renderMatchQuestion(q);
+                        break;
+                    case 'dragclassify':
+                        questionHtml = this.renderDragClassifyQuestion(q);
+                        break;
+                    case 'sort':
+                        questionHtml = this.renderSortQuestion(q);
+                        break;
+                    case 'fillblank':
+                        questionHtml = this.renderFillBlankQuestion(q);
+                        break;
+                    default:
+                        questionHtml = '<p class="text-center text-gray-500">题型不支持</p>';
+                }
+                
+                container.innerHTML = `
+                    <div class="bg-gradient-to-r from-primary/5 to-blue-50 p-6 rounded-xl border border-primary/10">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-sm text-primary font-medium">第 ${this.currentQuestionIndex + 1} / ${total} 题</p>
+                            <span class="px-3 py-1 text-xs bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full font-medium">
+                                <i class="fa fa-${this.getQuestionTypeIcon(q.type)} mr-1"></i>${this.getQuestionTypeName(q.type)}
+                            </span>
+                        </div>
+                        <h4 class="text-lg font-medium text-dark leading-relaxed">${q.title}</h4>
+                    </div>
+                    <div class="mt-6">
+                        ${questionHtml}
+                    </div>
+                `;
+                
+                document.getElementById('quiz-submit').disabled = true;
+                document.getElementById('quiz-submit').innerHTML = '<i class="fa fa-check mr-2"></i>确认答案';
+                
+                this.initQuestionInteraction(q.type);
+            }
+            
+            getQuestionTypeIcon(type) {
+                const icons = {
+                    'truefalse': 'check-circle',
+                    'multiplechoice': 'list-ul',
+                    'match': 'link',
+                    'dragclassify': 'hand-pointer',
+                    'sort': 'sort-numeric-down',
+                    'fillblank': 'pencil-alt'
+                };
+                return icons[type] || 'question';
+            }
+            
+            getQuestionTypeName(type) {
+                const names = {
+                    'truefalse': '判断题',
+                    'multiplechoice': '选择题',
+                    'match': '连线题',
+                    'dragclassify': '分类题',
+                    'sort': '排序题',
+                    'fillblank': '填空题'
+                };
+                return names[type] || '未知题型';
+            }
+            
+            renderTrueFalseQuestion(q) {
+                return `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="option p-6 border-2 border-gray-200 rounded-xl text-center text-lg font-medium hover:border-primary hover:bg-blue-50 transition-all cursor-pointer" data-answer="true" onclick="app.selectAnswer(this, 'true')">
+                            <i class="fa fa-check text-green-500 mr-2"></i>正确
+                        </div>
+                        <div class="option p-6 border-2 border-gray-200 rounded-xl text-center text-lg font-medium hover:border-primary hover:bg-blue-50 transition-all cursor-pointer" data-answer="false" onclick="app.selectAnswer(this, 'false')">
+                            <i class="fa fa-times text-red-500 mr-2"></i>错误
+                        </div>
+                    </div>
+                `;
+            }
+            
+            renderMultipleChoiceQuestion(q) {
+                return q.options.map((opt, idx) => `
+                    <div class="option p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-blue-50 transition-all cursor-pointer" data-index="${idx}" onclick="app.selectAnswer(this, ${idx})">
+                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold mr-3">${String.fromCharCode(65 + idx)}</span>
+                        <span class="text-gray-700">${opt.substring(3)}</span>
+                    </div>
+                `).join('');
+            }
+            
+            renderMatchQuestion(q) {
+                const leftItems = q.pairs.map((pair, idx) => `
+                    <div class="match-item p-4 bg-white border-2 border-gray-200 rounded-xl cursor-pointer hover:border-primary hover:shadow-md transition-all relative" 
+                         data-match-left="${idx}" onclick="app.selectMatchItem(this, '${idx}')">
+                        <span class="font-medium text-dark">${pair.left}</span>
+                    </div>
+                `).join('');
+                
+                const rightItems = q.pairs.map((pair, idx) => `
+                    <div class="match-item p-4 bg-white border-2 border-gray-200 rounded-xl cursor-pointer hover:border-primary hover:shadow-md transition-all relative" 
+                         data-match-right="${idx}" onclick="app.selectMatchItem(this, '${idx}')">
+                        <span class="font-medium text-dark">${pair.right}</span>
+                    </div>
+                `).join('');
+                
+                return `
+                    <div class="relative">
+                        <div class="match-svg" id="match-svg"></div>
+                        <div class="grid grid-cols-2 gap-8 relative z-20">
+                            <div class="space-y-4">
+                                <h5 class="text-sm font-bold text-gray-500 mb-3"><i class="fa fa-arrow-right mr-1"></i>点击配对</h5>
+                                ${leftItems}
+                            </div>
+                            <div class="space-y-4">
+                                <h5 class="text-sm font-bold text-gray-500 mb-3"><i class="fa fa-arrow-left mr-1"></i>对应内容</h5>
+                                ${rightItems}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            renderDragClassifyQuestion(q) {
+                const itemsHtml = q.items.map(item => `
+                    <div class="drag-item p-3 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl text-sm font-medium text-blue-800 shadow-sm flex items-center gap-2" 
+                         draggable="true" data-item-id="${item.id}">
+                        ${item.icon ? `<span class="text-xl">${item.icon}</span>` : ''}
+                        <span>${item.text}</span>
+                    </div>
+                `).join('');
+                
+                const categoriesHtml = q.categories.map(cat => `
+                    <div class="drop-zone p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl" 
+                         data-category-id="${cat.id}" ondragover="app.handleDragOver(event)" ondrop="app.handleDrop(event, '${cat.id}')" ondragleave="app.handleDragLeave(event)">
+                        <h5 class="text-sm font-bold text-gray-600 mb-3 flex items-center gap-2">
+                            <i class="fa fa-folder-open text-gray-400"></i>${cat.name}
+                        </h5>
+                        <div class="dropped-items space-y-2 min-h-[60px]" id="dropped-${cat.id}"></div>
+                    </div>
+                `).join('');
+                
+                return `
+                    <div class="space-y-6">
+                        <div class="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl">
+                            <h5 class="text-sm font-bold text-amber-700 mb-3"><i class="fa fa-hand-pointer mr-1"></i>请将以下项目拖拽到正确的分类中：</h5>
+                            <div class="flex flex-wrap gap-3" id="drag-source">
+                                ${itemsHtml}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-${Math.min(q.categories.length, 3)} gap-4">
+                            ${categoriesHtml}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            renderSortQuestion(q) {
+                const shuffledSteps = [...q.steps].sort(() => Math.random() - 0.5);
+                const stepsHtml = shuffledSteps.map((step, idx) => `
+                    <div class="sort-item p-4 bg-gradient-to-r from-green-50 to-teal-50 border-2 border-green-200 rounded-xl cursor-move shadow-sm flex items-center gap-4" 
+                         draggable="true" data-step-id="${step.id}" ondragstart="app.handleSortDragStart(event)" ondragover="app.handleSortDragOver(event)" ondrop="app.handleSortDrop(event)" ondragend="app.handleSortDragEnd(event)">
+                        <div class="order-badge flex-shrink-0">
+                            <i class="fa fa-arrows-alt-v"></i>
+                        </div>
+                        <span class="font-medium text-gray-700 flex-1">${step.text}</span>
+                        <i class="fa fa-grip-vertical text-gray-400"></i>
+                    </div>
+                `).join('');
+                
+                return `
+                    <div class="p-4 bg-gradient-to-r from-green-50 to-teal-50 border-2 border-green-200 rounded-xl">
+                        <h5 class="text-sm font-bold text-green-700 mb-3"><i class="fa fa-list-ol mr-1"></i>请将以下步骤按正确顺序排列（上下拖拽）：</h5>
+                        <div class="space-y-3" id="sort-container">
+                            ${stepsHtml}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            renderFillBlankQuestion(q) {
+                return `
+                    <div class="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl">
+                        <h5 class="text-sm font-bold text-indigo-700 mb-3"><i class="fa fa-keyboard mr-1"></i>请在下方填写正确答案：</h5>
+                        <div class="text-lg">
+                            ${q.title.replace('_______', `<input type="text" class="fill-blank-input text-center font-bold text-primary focus:border-primary outline-none" id="fill-answer" oninput="app.checkFillBlank()">`)}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            initQuestionInteraction(type) {
+                if (type === 'dragclassify') {
+                    setTimeout(() => {
+                        const dragItems = document.querySelectorAll('.drag-item');
+                        dragItems.forEach(item => {
+                            item.addEventListener('dragstart', (e) => this.handleDragStart(e));
+                            item.addEventListener('dragend', (e) => this.handleDragEnd(e));
+                        });
+                    }, 100);
+                    
+                    const checkClassify = () => {
+                        const dropZones = document.querySelectorAll('.drop-zone');
+                        const allFilled = Array.from(dropZones).every(zone => zone.querySelector('.dropped-items').children.length > 0);
+                        document.getElementById('quiz-submit').disabled = !allFilled;
+                    };
+                    
+                    window.checkClassifyComplete = checkClassify;
+                }
+                
+                if (type === 'sort') {
+                    this.sortItems = [];
+                    this.updateSortOrder();
+                }
+            }
+            
+            selectAnswer(element, value) {
+                const container = document.getElementById('quiz-content');
+                container.querySelectorAll('.option').forEach(opt => {
+                    opt.classList.remove('border-primary', 'bg-blue-50', 'selected');
+                    opt.classList.add('border-gray-200');
+                });
+                element.classList.remove('border-gray-200');
+                element.classList.add('border-primary', 'bg-blue-50', 'selected');
+                this.selectedAnswer = value;
+                document.getElementById('quiz-submit').disabled = false;
+            }
+            
+            selectMatchItem(element, idx) {
+                if (!this.matchSelections || typeof this.matchSelections !== 'object') {
+                    this.matchSelections = { left: null, right: null, completed: {} };
+                }
+                
+                const isLeft = element.dataset.matchLeft !== undefined;
+                
+                if (isLeft) {
+                    document.querySelectorAll('[data-match-left]').forEach(el => el.classList.remove('selected'));
+                    this.matchSelections.left = idx;
+                    element.classList.add('selected');
+                } else {
+                    document.querySelectorAll('[data-match-right]').forEach(el => el.classList.remove('selected'));
+                    this.matchSelections.right = idx;
+                    element.classList.add('selected');
+                }
+                
+                if (this.matchSelections.left !== null && this.matchSelections.right !== null) {
+                    const leftIdx = this.matchSelections.left;
+                    const rightIdx = this.matchSelections.right;
+                    
+                    this.matchSelections.completed[leftIdx] = rightIdx;
+                    
+                    document.querySelectorAll('[data-match-left]').forEach(el => el.classList.remove('selected'));
+                    document.querySelectorAll('[data-match-right]').forEach(el => el.classList.remove('selected'));
+                    
+                    const savedCompleted = JSON.parse(JSON.stringify(this.matchSelections.completed));
+                    this.matchSelections = { left: null, right: null, completed: savedCompleted };
+                    
+                    this.updateMatchLines();
+                    
+                    const totalPairs = document.querySelectorAll('[data-match-left]').length;
+                    if (Object.keys(this.matchSelections.completed).length === totalPairs) {
+                        document.getElementById('quiz-submit').disabled = false;
+                    }
+                }
+            }
+            
+            updateMatchLines() {
+                const svg = document.getElementById('match-svg');
+                if (!svg) return;
+                
+                let linesHtml = '';
+                const completed = this.matchSelections?.completed || {};
+                
+                Object.entries(completed).forEach(([leftIdx, rightIdx]) => {
+                    const leftEl = document.querySelector(`[data-match-left="${leftIdx}"]`);
+                    const rightEl = document.querySelector(`[data-match-right="${rightIdx}"]`);
+                    
+                    if (leftEl && rightEl) {
+                        const leftRect = leftEl.getBoundingClientRect();
+                        const rightRect = rightEl.getBoundingClientRect();
+                        const containerRect = svg.parentElement.getBoundingClientRect();
+                        
+                        const x1 = leftRect.right - containerRect.left;
+                        const y1 = leftRect.top + leftRect.height / 2 - containerRect.top;
+                        const x2 = rightRect.left - containerRect.left;
+                        const y2 = rightRect.top + rightRect.height / 2 - containerRect.top;
+                        
+                        linesHtml += `<path d="M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}" class="match-line"/>`;
+                    }
+                });
+                
+                svg.innerHTML = linesHtml;
+            }
+            
+            handleDragStart(e) {
+                e.target.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', e.target.dataset.itemId);
+                e.dataTransfer.effectAllowed = 'move';
+            }
+            
+            handleDragEnd(e) {
+                e.target.classList.remove('dragging');
+            }
+            
+            handleDragOver(e) {
+                e.preventDefault();
+                e.currentTarget.classList.add('drag-over');
+            }
+            
+            handleDragLeave(e) {
+                e.currentTarget.classList.remove('drag-over');
+            }
+            
+            handleDrop(e, categoryId) {
+                e.preventDefault();
+                e.currentTarget.classList.remove('drag-over');
+                
+                const itemId = e.dataTransfer.getData('text/plain');
+                const sourceEl = document.querySelector(`[data-item-id="${itemId}"]`);
+                const dropZone = document.getElementById(`dropped-${categoryId}`);
+                
+                if (sourceEl && dropZone) {
+                    const clone = sourceEl.cloneNode(true);
+                    clone.classList.add('border-green-300', 'bg-green-100');
+                    clone.classList.remove('border-blue-200', 'bg-blue-50', 'bg-blue-100');
+                    clone.setAttribute('draggable', 'false');
+                    clone.onclick = () => this.removeDroppedItem(clone, itemId);
+                    dropZone.appendChild(clone);
+                    sourceEl.style.display = 'none';
+                    
+                    if (window.checkClassifyComplete) {
+                        window.checkClassifyComplete();
+                    }
+                }
+            }
+            
+            removeDroppedItem(element, itemId) {
+                const original = document.querySelector(`[data-item-id="${itemId}"]`);
+                if (original) {
+                    original.style.display = 'flex';
+                }
+                element.remove();
+                
+                if (window.checkClassifyComplete) {
+                    window.checkClassifyComplete();
+                }
+            }
+            
+            handleSortDragStart(e) {
+                e.target.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', e.target.dataset.stepId);
+            }
+            
+            handleSortDragOver(e) {
+                e.preventDefault();
+                const draggable = document.querySelector('.sort-item.dragging');
+                if (draggable && draggable !== e.target) {
+                    const container = document.getElementById('sort-container');
+                    const afterElement = this.getDragAfterElement(container, e.clientY);
+                    if (afterElement == null) {
+                        container.appendChild(draggable);
+                    } else {
+                        container.insertBefore(draggable, afterElement);
+                    }
+                    this.updateSortOrder();
+                }
+            }
+            
+            handleSortDrop(e) {
+                e.preventDefault();
+            }
+            
+            handleSortDragEnd(e) {
+                e.target.classList.remove('dragging');
+                this.updateSortOrder();
+                document.getElementById('quiz-submit').disabled = false;
+            }
+            
+            getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.sort-item:not(.dragging)')];
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+            
+            updateSortOrder() {
+                const container = document.getElementById('sort-container');
+                if (!container) return;
+                
+                const items = container.querySelectorAll('.sort-item');
+                this.sortOrder = Array.from(items).map(item => item.dataset.stepId);
+                
+                items.forEach((item, idx) => {
+                    const badge = item.querySelector('.order-badge');
+                    if (badge) {
+                        badge.innerHTML = idx + 1;
+                        badge.style.background = 'linear-gradient(135deg, #165DFF, #36CFC9)';
+                    }
+                });
+            }
+            
+            checkFillBlank() {
+                const input = document.getElementById('fill-answer');
+                if (input && input.value.trim().length > 0) {
+                    document.getElementById('quiz-submit').disabled = false;
+                }
+            }
+            
+            handleQuizSubmit() {
+                const questions = gameQuestions[this.currentChapter.id];
+                const q = questions[this.currentQuestionIndex];
+                let userAnswer = null;
+                let isCorrect = false;
+                
+                switch(q.type) {
+                    case 'truefalse':
+                        isCorrect = (this.selectedAnswer === 'true') === q.correctAnswer;
+                        userAnswer = this.selectedAnswer;
+                        break;
+                        
+                    case 'multiplechoice':
+                        isCorrect = parseInt(this.selectedAnswer) === q.correctAnswer;
+                        userAnswer = this.selectedAnswer;
+                        break;
+                        
+                    case 'match':
+                        const completed = this.matchSelections?.completed || {};
+                        let correctMatches = 0;
+                        q.pairs.forEach((pair, idx) => {
+                            if (completed[idx] == idx) correctMatches++;
+                        });
+                        isCorrect = correctMatches === q.pairs.length;
+                        userAnswer = completed;
+                        this.showMatchResults(q);
+                        break;
+                        
+                    case 'dragclassify':
+                        let correctClassify = 0;
+                        let totalClassify = 0;
+                        q.categories.forEach(cat => {
+                            const dropZone = document.getElementById(`dropped-${cat.id}`);
+                            const droppedItems = Array.from(dropZone.querySelectorAll('[data-item-id]')).map(el => el.dataset.itemId);
+                            const correctItems = cat.correctItems;
+                            totalClassify += correctItems.length;
+                            correctClassify += droppedItems.filter(item => correctItems.includes(item)).length;
+                        });
+                        isCorrect = correctClassify === totalClassify;
+                        userAnswer = '已分类';
+                        this.showClassifyResults(q);
+                        break;
+                        
+                    case 'sort':
+                        isCorrect = JSON.stringify(this.sortOrder) === JSON.stringify(q.correctOrder);
+                        userAnswer = this.sortOrder;
+                        this.showSortResults(q);
+                        break;
+                        
+                    case 'fillblank':
+                        const fillInput = document.getElementById('fill-answer');
+                        userAnswer = fillInput?.value?.trim() || '';
+                        isCorrect = userAnswer === q.correctAnswer;
+                        if (!isCorrect) {
+                            fillInput.classList.add('border-red-500', 'shake');
+                        } else {
+                            fillInput.classList.add('border-green-500');
+                        }
+                        break;
+                        
+                    default:
+                        isCorrect = false;
+                }
+                
+                this.chapterAnswers.push({ question: q, userAnswer, isCorrect });
+                
+                setTimeout(() => {
+                    if (this.currentQuestionIndex < questions.length - 1) {
+                        this.currentQuestionIndex++;
+                        this.selectedAnswer = null;
+                        this.matchSelections = null;
+                        this.sortOrder = null;
+                        this.renderQuiz(questions);
+                    } else {
+                        this.completeChapter();
+                    }
+                }, q.type === 'match' || q.type === 'dragclassify' || q.type === 'sort' ? 2000 : 1500);
+            }
+            
+            showMatchResults(q) {
+                const completed = this.matchSelections?.completed || {};
+                Object.entries(completed).forEach(([leftIdx, rightIdx]) => {
+                    const leftEl = document.querySelector(`[data-match-left="${leftIdx}"]`);
+                    const rightEl = document.querySelector(`[data-match-right="${rightIdx}"]`);
+                    
+                    if (parseInt(leftIdx) === parseInt(rightIdx)) {
+                        leftEl?.classList.add('border-green-500', 'bg-green-50');
+                        rightEl?.classList.add('border-green-500', 'bg-green-50');
+                    } else {
+                        leftEl?.classList.add('border-red-500', 'bg-red-50');
+                        rightEl?.classList.add('border-red-500', 'bg-red-50');
+                    }
+                });
+            }
+            
+            showClassifyResults(q) {
+                q.categories.forEach(cat => {
+                    const dropZone = document.querySelector(`[data-category-id="${cat.id}"]`);
+                    const droppedItems = dropZone.querySelectorAll('[data-item-id]');
+                    
+                    droppedItems.forEach(item => {
+                        if (cat.correctItems.includes(item.dataset.itemId)) {
+                            item.classList.add('border-green-500', 'bg-green-100');
+                            item.classList.remove('border-blue-200', 'bg-blue-50');
+                        } else {
+                            item.classList.add('border-red-500', 'bg-red-100');
+                            item.classList.remove('border-blue-200', 'bg-blue-50');
+                        }
+                    });
+                });
+            }
+            
+            showSortResults(q) {
+                const container = document.getElementById('sort-container');
+                const items = container.querySelectorAll('.sort-item');
+                
+                items.forEach((item, idx) => {
+                    const stepId = item.dataset.stepId;
+                    if (this.sortOrder[idx] === q.correctOrder[idx]) {
+                        item.classList.add('border-green-500', 'bg-green-100');
+                    } else {
+                        item.classList.add('border-red-500', 'bg-red-100');
+                    }
+                });
+            }
+            
+            completeChapter() {
+                const correctCount = this.chapterAnswers.filter(a => a.isCorrect).length;
+                const total = this.chapterAnswers.length;
+                const score = Math.round((correctCount / total) * 100);
+                const stars = score >= 90 ? 3 : (score >= 70 ? 2 : (score >= 60 ? 1 : 0));
+                
+                if (!this.gameState.completedChapters.includes(this.currentChapter.id)) {
+                    this.gameState.completedChapters.push(this.currentChapter.id);
+                    this.gameState.chapterStars[this.currentChapter.id] = stars;
+                    this.gameState.coins += stars * 10;
+                } else {
+                    if (stars > (this.gameState.chapterStars[this.currentChapter.id] || 0)) {
+                        this.gameState.chapterStars[this.currentChapter.id] = stars;
+                        this.gameState.coins += (stars - (this.gameState.chapterStars[this.currentChapter.id] || 0)) * 10;
+                    }
+                }
+                
+                this.saveData();
+                this.updateUI();
+                
+                document.getElementById('quiz-modal').classList.add('hidden');
+                this.showToast(`恭喜完成《${this.currentChapter.title}》！获得 ${stars} 星评价和 ${stars * 10} 金币`, 'success');
+                
+                this.checkAchievements();
+                this.showGameView('chapters');
+            }
+            
+            closeQuiz() {
+                document.getElementById('quiz-modal').classList.add('hidden');
+            }
+            
+            showHint() {
+                const questions = gameQuestions[this.currentChapter.id];
+                const q = questions[this.currentQuestionIndex];
+                this.showToast('提示：' + (q.explanation || '请仔细阅读题目内容'), 'warning');
+            }
+
+            renderShop() {
+                const container = document.getElementById('shop-items');
+                document.getElementById('shop-coins').textContent = this.gameState.coins;
+                
+                container.innerHTML = shopItems.map(item => {
+                    const isPurchased = this.gameState.purchasedItems.includes(item.id);
+                    const canAfford = this.gameState.coins >= item.price;
+                    
+                    return `
+                        <div class="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200 hover:border-yellow-300 transition-all ${isPurchased ? 'opacity-60' : ''}">
+                            <div class="flex items-start gap-4">
+                                <div class="w-16 h-16 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-xl flex items-center justify-center text-3xl">
+                                    ${item.icon}
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-dark mb-1">${item.name}</h4>
+                                    <p class="text-sm text-gray-500 mb-3">${item.description}</p>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-1 text-yellow-600 font-bold">
+                                            <i class="fa fa-coins"></i> ${item.price}
+                                        </div>
+                                        ${isPurchased ? `
+                                            <span class="px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                                                <i class="fa fa-check mr-1"></i>已拥有
+                                            </span>
+                                        ` : `
+                                            <button onclick="app.purchaseItem('${item.id}')" class="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-full text-sm font-medium hover:shadow-lg transition-all ${!canAfford ? 'opacity-50 cursor-not-allowed' : ''}" ${!canAfford ? 'disabled' : ''}>
+                                                <i class="fa fa-shopping-cart mr-1"></i>购买
+                                            </button>
+                                        `}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            purchaseItem(itemId) {
+                const item = shopItems.find(i => i.id === itemId);
+                if (!item || this.gameState.purchasedItems.includes(itemId)) return;
+                
+                if (this.gameState.coins >= item.price) {
+                    this.gameState.coins -= item.price;
+                    this.gameState.purchasedItems.push(itemId);
+                    this.saveData();
+                    this.updateUI();
+                    this.renderShop();
+                    this.showToast(`成功购买「${item.name}」！`, 'success');
+                }
+            }
+
+            renderAchievements() {
+                const container = document.getElementById('achievements-grid');
+                const categories = ['荣誉', '权力', '平衡', '转型', '悲剧', '特殊'];
+                
+                container.innerHTML = achievements.map(a => {
+                    const isUnlocked = this.gameState.unlockedAchievements.includes(a.id);
+                    return `
+                        <div class="achievement-card ${!isUnlocked ? 'locked' : ''} bg-white p-4 rounded-xl border border-gray-200 hover:border-accent hover:shadow-lg transition-all">
+                            <div class="w-14 h-14 mx-auto mb-3 rounded-xl flex items-center justify-center text-3xl ${isUnlocked ? 'bg-gradient-to-br from-accent/20 to-purple-100' : 'bg-gray-100'}">
+                                ${isUnlocked ? a.icon : '❓'}
+                            </div>
+                            <h4 class="font-bold text-center mb-1 ${isUnlocked ? 'text-dark' : 'text-gray-400'}">${isUnlocked ? a.name : '???'}</h4>
+                            <p class="text-xs text-center text-gray-500 mb-2">${a.category}</p>
+                            <p class="text-xs text-center text-gray-400">${isUnlocked ? a.description : '未解锁'}</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            renderTheater() {
+                const container = document.getElementById('theater-events');
+                const chapters = {};
+                theaterEvents.forEach(event => {
+                    if (!chapters[event.chapter]) {
+                        chapters[event.chapter] = [];
+                    }
+                    chapters[event.chapter].push(event);
+                });
+
+                let html = '';
+                Object.entries(chapters).forEach(([chapter, events]) => {
+                    html += `
+                        <div class="mb-8">
+                            <h4 class="text-lg font-bold text-dark mb-4 flex items-center gap-2">
+                                <i class="fa fa-book text-secondary"></i>${chapter}
+                            </h4>
+                            <div class="grid gap-3">
+                                ${events.map(event => `
+                                    <div class="theater-event p-4 bg-gradient-to-r from-teal-50 to-white rounded-xl border border-teal-100 hover:from-teal-100 cursor-pointer transition-all" onclick="app.startTheaterEvent(${event.id})">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
+                                                    <i class="fa fa-map-marker-alt text-secondary"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="font-medium text-dark">${event.scenario}</p>
+                                                    <p class="text-xs text-gray-500">第 ${event.year} 年</p>
+                                                </div>
+                                            </div>
+                                            <i class="fa fa-chevron-right text-gray-400"></i>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+
+            startTheaterEvent(eventId) {
+                const event = theaterEvents.find(e => e.id === eventId);
+                if (!event) return;
+
+                document.getElementById('theater-title').textContent = event.scenario;
+                document.getElementById('theater-subtitle').textContent = `${event.chapter} · 第 ${event.year} 年`;
+                
+                const eventIndex = theaterEvents.indexOf(event);
+                const scenarioIndex = eventIndex % 3;
+                
+                const choices = this.getTheaterChoices(scenarioIndex);
+                
+                document.getElementById('theater-content').innerHTML = `
+                    <div class="text-center mb-8">
+                        <div class="w-20 h-20 bg-gradient-to-br from-secondary to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                            <i class="fa fa-theater-masks text-white text-3xl"></i>
+                        </div>
+                        <p class="text-gray-600">请选择你的行动：</p>
+                    </div>
+                    <div class="space-y-4">
+                        ${choices.map((choice, idx) => `
+                            <button onclick="app.makeTheaterChoice(${eventId}, ${idx})" class="choice-btn w-full p-5 bg-gradient-to-r from-teal-50 to-white rounded-xl border-2 border-teal-200 hover:border-secondary hover:shadow-lg text-left transition-all">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
+                                        <span class="text-secondary font-bold">${String.fromCharCode(65 + idx)}</span>
+                                    </div>
+                                    <p class="font-medium text-dark">${choice.text}</p>
+                                </div>
+                            </button>
+                        `).join('')}
+                    </div>
+                    <div class="mt-8 p-4 bg-gray-50 rounded-xl">
+                        <p class="text-sm text-gray-500 mb-2">当前属性：</p>
+                        <div class="grid grid-cols-4 gap-2 text-xs">
+                            <div class="text-center"><span class="text-primary">智慧 ${this.gameState.theaterStats.wisdom}</span></div>
+                            <div class="text-center"><span class="text-orange-500">勇气 ${this.gameState.theaterStats.courage}</span></div>
+                            <div class="text-center"><span class="text-green-500">原则 ${this.gameState.theaterStats.principle}</span></div>
+                            <div class="text-center"><span class="text-purple-500">人脉 ${this.gameState.theaterStats.network}</span></div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('theater-modal').classList.remove('hidden');
+            }
+
+            getTheaterChoices(scenarioIndex) {
+                const allChoices = [
+                    [
+                        { text: '积极表现，争取留用机会', effect: { wisdom: 5, principle: 3 } },
+                        { text: '稳扎稳打，完成本职工作', effect: { wisdom: 3, network: 2 } },
+                        { text: '主动请教前辈，加速成长', effect: { wisdom: 4, network: 4 } }
+                    ],
+                    [
+                        { text: '坚持原则，拒绝妥协', effect: { principle: 10, courage: 5 } },
+                        { text: '权衡利弊，做出最优选择', effect: { wisdom: 5, network: 3 } },
+                        { text: '寻求他人支持，共同应对', effect: { network: 6, wisdom: 2 } }
+                    ],
+                    [
+                        { text: '勇往直前，接受挑战', effect: { courage: 8, risk: 5 } },
+                        { text: '谨慎评估，三思后行', effect: { wisdom: 6, caution: 3 } },
+                        { text: '另辟蹊径，寻找新机会', effect: { network: 4, potential: 5 } }
+                    ]
+                ];
+                return allChoices[scenarioIndex] || allChoices[0];
+            }
+
+            makeTheaterChoice(eventId, choiceIndex) {
+                const scenarioIndex = eventId % 3;
+                const choices = this.getTheaterChoices(scenarioIndex);
+                const choice = choices[choiceIndex];
+                
+                if (choice.effect) {
+                    Object.keys(choice.effect).forEach(key => {
+                        if (this.gameState.theaterStats.hasOwnProperty(key)) {
+                            this.gameState.theaterStats[key] = Math.max(0, Math.min(100, this.gameState.theaterStats[key] + choice.effect[key]));
+                        }
+                    });
+                }
+                
+                this.saveData();
+                this.closeTheater();
+                
+                const nextEvent = theaterEvents[eventId];
+                if (nextEvent && eventId < 15) {
+                    setTimeout(() => {
+                        this.startTheaterEvent(eventId + 1);
+                    }, 500);
+                } else {
+                    this.showEnding();
+                }
+            }
+
+            showEnding() {
+                const stats = this.gameState.theaterStats;
+                let matchedEnding = theaterEndings.find(ending => {
+                    try {
+                        const condition = ending.condition
+                            .replace(/principle/g, stats.principle)
+                            .replace(/courage/g, stats.courage)
+                            .replace(/wisdom/g, stats.wisdom)
+                            .replace(/network/g, stats.network)
+                            .replace(/money/g, stats.money)
+                            .replace(/family/g, stats.family)
+                            .replace(/health/g, stats.health)
+                            .replace(/pressure/g, stats.pressure);
+                        return eval(condition);
+                    } catch {
+                        return false;
+                    }
+                });
+                
+                if (!matchedEnding) {
+                    matchedEnding = theaterEndings.find(e => e.id === 'special1');
+                }
+                
+                if (matchedEnding && !this.gameState.unlockedAchievements.includes(matchedEnding.id)) {
+                    this.gameState.unlockedAchievements.push(matchedEnding.id);
+                    this.saveData();
+                    this.showToast(`解锁成就：${matchedEnding.title}`, 'success');
+                }
+            }
+
+            closeTheater() {
+                document.getElementById('theater-modal').classList.add('hidden');
+            }
+
+            renderCases() {
+                const container = document.getElementById('case-list');
+                container.innerHTML = auditCases.scenarios.map(c => `
+                    <div class="case-card bg-gradient-to-br from-pink-50 to-rose-50 p-6 rounded-2xl border border-pink-100" onclick="app.openCase('${c.id}')">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-14 h-14 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <i class="fa fa-file-contract text-white text-2xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-dark">${c.title}</h4>
+                                <p class="text-sm text-gray-500">${c.year}年</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-4">${c.description}</p>
+                        <button class="w-full py-2.5 bg-white text-pink-600 rounded-xl font-medium hover:bg-pink-100 transition-all">
+                            <i class="fa fa-play mr-2"></i>开始分析
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            openCase(caseId) {
+                const c = auditCases.scenarios.find(x => x.id === caseId);
+                if (!c) return;
+                
+                this.gameState.currentCase = caseId;
+                
+                document.getElementById('case-title').textContent = c.title;
+                document.getElementById('case-subtitle').textContent = c.year + '年经典审计案例';
+                
+                let questions = caseId === 'yin-guang-xia' ? yinGuangXiaQuestions : lvDaDiQuestions;
+                let dataTable = '';
+                
+                if (caseId === 'yin-guang-xia') {
+                    dataTable = this.getYinGuangXiaTable();
+                } else {
+                    dataTable = this.getLvDaDiTable();
+                }
+                
+                document.getElementById('case-content').innerHTML = `
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="font-bold text-dark">财务数据分析</h4>
+                            <button onclick="app.startCaseAnalysis()" class="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg font-medium hover:shadow-lg transition-all">
+                                <i class="fa fa-play mr-2"></i>开始答题
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            ${dataTable}
+                        </div>
+                    </div>
+                    <div class="p-6 bg-pink-50 rounded-xl">
+                        <h4 class="font-bold text-dark mb-3">案例背景</h4>
+                        <p class="text-gray-600">${c.description}</p>
+                    </div>
+                `;
+                
+                document.getElementById('case-modal').classList.remove('hidden');
+            }
+
+            getYinGuangXiaTable() {
+                return `
+                    <table class="w-full border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-pink-100">
+                                <th class="border border-pink-200 p-3 text-left">年份</th>
+                                <th class="border border-pink-200 p-3 text-right">每股收益（元）</th>
+                                <th class="border border-pink-200 p-3 text-right">净资产收益率（%）</th>
+                                <th class="border border-pink-200 p-3 text-right">主营业务收入（万元）</th>
+                                <th class="border border-pink-200 p-3 text-right">主营业务利润（万元）</th>
+                                <th class="border border-pink-200 p-3 text-right">净利润（万元）</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td class="border border-pink-200 p-3">1994</td><td class="border border-pink-200 p-3 text-right">0.3</td><td class="border border-pink-200 p-3 text-right">15.52</td><td class="border border-pink-200 p-3 text-right">10635</td><td class="border border-pink-200 p-3 text-right">957</td><td class="border border-pink-200 p-3 text-right">2181</td></tr>
+                            <tr><td class="border border-pink-200 p-3">1995</td><td class="border border-pink-200 p-3 text-right">0.22</td><td class="border border-pink-200 p-3 text-right">10.03</td><td class="border border-pink-200 p-3 text-right">22556</td><td class="border border-pink-200 p-3 text-right">1924</td><td class="border border-pink-200 p-3 text-right">2747</td></tr>
+                            <tr><td class="border border-pink-200 p-3">1996</td><td class="border border-pink-200 p-3 text-right">0.32</td><td class="border border-pink-200 p-3 text-right">14.71</td><td class="border border-pink-200 p-3 text-right">42951</td><td class="border border-pink-200 p-3 text-right">4573</td><td class="border border-pink-200 p-3 text-right">4723</td></tr>
+                            <tr><td class="border border-pink-200 p-3">1997</td><td class="border border-pink-200 p-3 text-right">0.23</td><td class="border border-pink-200 p-3 text-right">10.1</td><td class="border border-pink-200 p-3 text-right">32432</td><td class="border border-pink-200 p-3 text-right">5086</td><td class="border border-pink-200 p-3 text-right">4664</td></tr>
+                            <tr><td class="border border-pink-200 p-3">1998</td><td class="border border-pink-200 p-3 text-right">0.41</td><td class="border border-pink-200 p-3 text-right">15.35</td><td class="border border-pink-200 p-3 text-right">60988</td><td class="border border-pink-200 p-3 text-right">22769</td><td class="border border-pink-200 p-3 text-right">9915</td></tr>
+                            <tr><td class="border border-pink-200 p-3">1999</td><td class="border border-pink-200 p-3 text-right">0.51</td><td class="border border-pink-200 p-3 text-right">13.56</td><td class="border border-pink-200 p-3 text-right">52604</td><td class="border border-pink-200 p-3 text-right">20858</td><td class="border border-pink-200 p-3 text-right">12779</td></tr>
+                            <tr class="bg-yellow-50"><td class="border border-pink-200 p-3 font-bold">2000</td><td class="border border-pink-200 p-3 text-right font-bold text-red-600">0.83</td><td class="border border-pink-200 p-3 text-right font-bold text-red-600">34.56</td><td class="border border-pink-200 p-3 text-right font-bold text-red-600">90899</td><td class="border border-pink-200 p-3 text-right font-bold text-red-600">57826</td><td class="border border-pink-200 p-3 text-right font-bold text-red-600">41765</td></tr>
+                            <tr class="bg-red-50"><td class="border border-pink-200 p-3 font-bold">2001</td><td class="border border-pink-200 p-3 text-right font-bold text-red-600">-0.04</td><td class="border border-pink-200 p-3 text-right font-bold text-red-600">-3.77</td><td class="border border-pink-200 p-3 text-right font-bold text-red-600">7251</td><td class="border border-pink-200 p-3 text-right font-bold text-red-600">1916</td><td class="border border-pink-200 p-3 text-right font-bold text-red-600">-1953</td></tr>
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            getLvDaDiTable() {
+                return `
+                    <table class="w-full border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-pink-100">
+                                <th class="border border-pink-200 p-3 text-left">报告期</th>
+                                <th class="border border-pink-200 p-3 text-right">虚增业务收入（万元）</th>
+                                <th class="border border-pink-200 p-3 text-right">虚增资产（万元）</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td class="border border-pink-200 p-3">招股书</td><td class="border border-pink-200 p-3 text-right">29610</td><td class="border border-pink-200 p-3 text-right">7011</td></tr>
+                            <tr><td class="border border-pink-200 p-3">2007年年报</td><td class="border border-pink-200 p-3 text-right">9660</td><td class="border border-pink-200 p-3 text-right">2124</td></tr>
+                            <tr><td class="border border-pink-200 p-3">2008年年报</td><td class="border border-pink-200 p-3 text-right">8565</td><td class="border border-pink-200 p-3 text-right">16335</td></tr>
+                            <tr><td class="border border-pink-200 p-3">2009年年报</td><td class="border border-pink-200 p-3 text-right">6856</td><td class="border border-pink-200 p-3 text-right">10407</td></tr>
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            startCaseAnalysis() {
+                const caseId = this.gameState.currentCase;
+                const questions = caseId === 'yin-guang-xia' ? yinGuangXiaQuestions : lvDaDiQuestions;
+                this.caseQuestions = questions;
+                this.caseQuestionIndex = 0;
+                this.caseAnswers = [];
+                
+                document.getElementById('case-title').textContent = caseId === 'yin-guang-xia' ? '银广夏审计案 - 知识分析' : '绿大地造假案 - 知识分析';
+                this.renderCaseQuestion();
+            }
+
+            renderCaseQuestion() {
+                const q = this.caseQuestions[this.caseQuestionIndex];
+                const total = this.caseQuestions.length;
+                
+                let optionsHtml = '';
+                if (q.content.includes('<br>') && q.content.includes('A.')) {
+                    const options = q.content.split('<br>');
+                    optionsHtml = options.map((opt, idx) => `
+                        <div class="option p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-blue-50 transition-all" data-index="${idx}" onclick="app.selectAnswer(this, ${idx})">
+                            ${opt}
+                        </div>
+                    `).join('');
+                } else {
+                    optionsHtml = `
+                        <textarea id="case-answer" class="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-primary focus:outline-none" rows="4" placeholder="请输入答案"></textarea>
+                    `;
+                }
+                
+                document.getElementById('case-content').innerHTML = `
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-sm text-gray-500">第 ${this.caseQuestionIndex + 1} / ${total} 题</span>
+                            <button onclick="app.showCaseHint()" class="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm">
+                                <i class="fa fa-lightbulb mr-1"></i>提示
+                            </button>
+                        </div>
+                        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-pink-500 to-rose-500 transition-all" style="width: ${((this.caseQuestionIndex + 1) / total) * 100}%"></div>
+                        </div>
+                    </div>
+                    <div class="bg-pink-50 p-5 rounded-xl mb-6">
+                        <h4 class="font-medium text-dark mb-2">${q.title}</h4>
+                    </div>
+                    <div class="space-y-3 mb-6">
+                        ${optionsHtml}
+                    </div>
+                    <div class="flex gap-3">
+                        ${this.caseQuestionIndex > 0 ? `
+                            <button onclick="app.prevCaseQuestion()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-all">
+                                <i class="fa fa-arrow-left mr-2"></i>上一题
+                            </button>
+                        ` : ''}
+                        <button onclick="app.submitCaseAnswer()" class="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-medium hover:shadow-lg transition-all">
+                            ${this.caseQuestionIndex === total - 1 ? '<i class="fa fa-check mr-2"></i>完成答题' : '<i class="fa fa-arrow-right mr-2"></i>下一题'}
+                        </button>
+                    </div>
+                    <div id="case-result" class="mt-6 hidden"></div>
+                `;
+            }
+
+            showCaseHint() {
+                const q = this.caseQuestions[this.caseQuestionIndex];
+                this.showToast('提示：' + (q.hint || '请根据数据分析'), 'warning');
+            }
+
+            submitCaseAnswer() {
+                const q = this.caseQuestions[this.caseQuestionIndex];
+                let userAnswer = null;
+                let isCorrect = false;
+                
+                if (q.content.includes('A.')) {
+                    const selected = document.querySelector('.option.selected');
+                    if (selected) {
+                        userAnswer = String.fromCharCode(65 + parseInt(selected.dataset.index));
+                        isCorrect = userAnswer === q.answer;
+                    }
+                } else {
+                    userAnswer = document.getElementById('case-answer').value;
+                    isCorrect = userAnswer.includes(q.answer);
+                }
+                
+                if (userAnswer === null) {
+                    this.showToast('请输入答案', 'warning');
+                    return;
+                }
+                
+                this.caseAnswers.push({ question: q, userAnswer, isCorrect });
+                
+                const resultHtml = `
+                    <div class="p-4 rounded-xl ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}">
+                        <h5 class="font-bold mb-2 ${isCorrect ? 'text-green-700' : 'text-red-700'}">
+                            ${isCorrect ? '<i class="fa fa-check-circle mr-2"></i>回答正确！' : '<i class="fa fa-times-circle mr-2"></i>回答错误'}
+                        </h5>
+                        <p class="text-sm text-gray-600 mb-2"><strong>正确答案：</strong>${q.answer}</p>
+                        <p class="text-sm text-gray-600"><strong>解析：</strong>${q.explanation}</p>
+                    </div>
+                `;
+                document.getElementById('case-result').innerHTML = resultHtml;
+                document.getElementById('case-result').classList.remove('hidden');
+                
+                if (this.caseQuestionIndex < this.caseQuestions.length - 1) {
+                    setTimeout(() => {
+                        this.caseQuestionIndex++;
+                        this.renderCaseQuestion();
+                    }, 2000);
+                } else {
+                    setTimeout(() => {
+                        const correct = this.caseAnswers.filter(a => a.isCorrect).length;
+                        this.showToast(`案例分析完成！正确率：${correct}/${this.caseAnswers.length}`, 'success');
+                        this.closeCase();
+                    }, 2000);
+                }
+            }
+
+            prevCaseQuestion() {
+                if (this.caseQuestionIndex > 0) {
+                    this.caseQuestionIndex--;
+                    this.renderCaseQuestion();
+                }
+            }
+
+            closeCase() {
+                document.getElementById('case-modal').classList.add('hidden');
+            }
+
+            checkAchievements() {
+                achievements.forEach(a => {
+                    if (!this.gameState.unlockedAchievements.includes(a.id)) {
+                        let shouldUnlock = false;
+                        try {
+                            if (a.id === 'glory1' && this.gameState.theaterStats.principle > 80 && this.gameState.theaterStats.courage > 70) shouldUnlock = true;
+                            if (a.id === 'special1' && this.gameState.completedChapters.length >= 6) shouldUnlock = true;
+                        } catch {}
+                        
+                        if (shouldUnlock) {
+                            this.gameState.unlockedAchievements.push(a.id);
+                        }
+                    }
+                });
+                this.saveData();
+            }
+
+            renderAllAchievements() {
+                const container = document.getElementById('all-achievements');
+                container.innerHTML = achievements.map(a => {
+                    const isUnlocked = this.gameState.unlockedAchievements.includes(a.id);
+                    return `
+                        <div class="achievement-card ${!isUnlocked ? 'locked' : ''} bg-white p-5 rounded-xl border border-gray-200 hover:border-accent hover:shadow-lg transition-all">
+                            <div class="flex items-center gap-4">
+                                <div class="w-14 h-14 rounded-xl flex items-center justify-center text-3xl ${isUnlocked ? 'bg-gradient-to-br from-accent/20 to-purple-100' : 'bg-gray-100'}">
+                                    ${isUnlocked ? a.icon : '❓'}
+                                </div>
+                                <div>
+                                    <h4 class="font-bold ${isUnlocked ? 'text-dark' : 'text-gray-400'}">${isUnlocked ? a.name : '???'}</h4>
+                                    <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded">${a.category}</span>
+                                </div>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-3">${isUnlocked ? a.description : '完成审计剧场来解锁此成就'}</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            startAssessment() {
+                document.getElementById('assessment-start').classList.add('hidden');
+                document.getElementById('assessment-questions').classList.remove('hidden');
+                this.assessmentState = { currentQuestion: 0, answers: [], score: 0 };
+                this.renderAssessmentQuestion();
+            }
+
+            renderAssessmentQuestion() {
+                const q = assessmentQuestions[this.assessmentState.currentQuestion];
+                const total = assessmentQuestions.length;
+                const progress = ((this.assessmentState.currentQuestion) / total) * 100;
+                
+                document.getElementById('current-q').textContent = this.assessmentState.currentQuestion + 1;
+                document.getElementById('total-q').textContent = total;
+                document.getElementById('q-category').textContent = q.category;
+                document.getElementById('progress-bar').style.width = `${progress}%`;
+                document.getElementById('q-text').textContent = q.text;
+                
+                const optionsHtml = q.options.map((opt, idx) => `
+                    <div class="option p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-blue-50 transition-all" data-index="${idx}" onclick="app.selectAssessmentAnswer(this, ${idx})">
+                        ${opt}
+                    </div>
+                `).join('');
+                
+                document.getElementById('q-options').innerHTML = optionsHtml;
+                document.getElementById('next-btn').disabled = true;
+                this.selectedAnswer = null;
+            }
+
+            selectAssessmentAnswer(element, value) {
+                document.querySelectorAll('#q-options .option').forEach(opt => {
+                    opt.classList.remove('border-primary', 'bg-blue-50');
+                    opt.classList.add('border-gray-200');
+                });
+                element.classList.remove('border-gray-200');
+                element.classList.add('border-primary', 'bg-blue-50');
+                this.selectedAnswer = value;
+                document.getElementById('next-btn').disabled = false;
+            }
+
+            nextQuestion() {
+                const q = assessmentQuestions[this.assessmentState.currentQuestion];
+                const isCorrect = this.selectedAnswer === q.correct;
+                
+                this.assessmentState.answers.push({
+                    question: q,
+                    userAnswer: this.selectedAnswer,
+                    isCorrect
+                });
+                
+                if (isCorrect) this.assessmentState.score++;
+                
+                if (this.assessmentState.currentQuestion < assessmentQuestions.length - 1) {
+                    this.assessmentState.currentQuestion++;
+                    this.renderAssessmentQuestion();
+                } else {
+                    this.showAssessmentResult();
+                }
+            }
+
+            showAssessmentResult() {
+                document.getElementById('assessment-questions').classList.add('hidden');
+                document.getElementById('assessment-result').classList.remove('hidden');
+                
+                const score = Math.round((this.assessmentState.score / assessmentQuestions.length) * 100);
+                const scoreDesc = score >= 80 ? '优秀！你具备扎实的审计基础' : 
+                                  score >= 60 ? '良好！继续努力提升' : 
+                                  '需要加强学习，建议从基础开始';
+                
+                document.getElementById('final-score').textContent = score;
+                document.getElementById('score-desc').textContent = scoreDesc;
+                
+                const circle = document.getElementById('score-circle');
+                const offset = 283 - (283 * score / 100);
+                setTimeout(() => {
+                    circle.style.strokeDashoffset = offset;
+                }, 100);
+                
+                const planItems = document.getElementById('plan-items');
+                const stage = score >= 80 ? 'advanced' : (score >= 50 ? 'intermediate' : 'basic');
+                const plans = learningStages[stage];
+                
+                planItems.innerHTML = plans.map((p, idx) => `
+                    <div class="p-4 bg-blue-50 rounded-xl">
+                        <h4 class="font-bold text-dark mb-2">${p.title}</h4>
+                        <p class="text-sm text-gray-600 mb-3">${p.description}</p>
+                        ${p.tasks.length > 0 ? `
+                            <ul class="text-sm text-gray-500 space-y-1">
+                                ${p.tasks.map(t => `<li><i class="fa fa-check text-green-500 mr-2"></i>${t}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                    </div>
+                `).join('');
+                
+                const materialsList = document.getElementById('materials-list');
+                materialsList.innerHTML = recommendedMaterials.map(m => `
+                    <div class="p-4 bg-teal-50 rounded-xl">
+                        <h4 class="font-bold text-dark mb-2">${m.title}</h4>
+                        <p class="text-sm text-gray-600 mb-3">${m.description}</p>
+                        <div class="flex flex-wrap gap-2">
+                            ${m.links.map(l => `
+                                <a href="${l.url}" target="_blank" class="px-3 py-1.5 bg-white text-primary rounded-lg text-sm hover:bg-primary hover:text-white transition-all">
+                                    <i class="fa fa-external-link mr-1"></i>${l.text}
+                                </a>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            showToast(message, type = 'success') {
+                const toast = document.getElementById('toast');
+                const icon = document.getElementById('toast-icon');
+                const msg = document.getElementById('toast-message');
+                
+                if (type === 'success') {
+                    icon.className = 'fa fa-check-circle text-green-400';
+                } else if (type === 'warning') {
+                    icon.className = 'fa fa-exclamation-circle text-yellow-400';
+                } else {
+                    icon.className = 'fa fa-info-circle text-blue-400';
+                }
+                
+                msg.textContent = message;
+                toast.classList.remove('translate-y-20', 'opacity-0');
+                toast.classList.add('translate-y-0', 'opacity-100');
+                
+                setTimeout(() => {
+                    toast.classList.add('translate-y-20', 'opacity-0');
+                    toast.classList.remove('translate-y-0', 'opacity-100');
+                }, 3000);
+            }
+        }
+
+        const app = new AuditLearningApp();
+    </script>
+</body>
+</html>
