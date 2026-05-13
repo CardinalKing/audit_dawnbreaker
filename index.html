@@ -132,6 +132,14 @@
             stroke-width: 3;
             stroke-linecap: round;
         }
+        .match-line-correct {
+            stroke: #52c41a;
+            stroke-width: 4;
+        }
+        .match-line-incorrect {
+            stroke: #ff4d4f;
+            stroke-width: 4;
+        }
         .match-item.selected {
             border-color: #1890ff;
             background: #e6f7ff;
@@ -1624,7 +1632,7 @@
                 }
             }
             
-            updateMatchLines() {
+            updateMatchLines(showResults = false, question = null) {
                 const svg = document.getElementById('match-svg');
                 if (!svg) return;
                 
@@ -1645,7 +1653,16 @@
                         const x2 = rightRect.left - containerRect.left;
                         const y2 = rightRect.top + rightRect.height / 2 - containerRect.top;
                         
-                        linesHtml += `<path d="M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}" class="match-line"/>`;
+                        let lineClass = 'match-line';
+                        if (showResults && question) {
+                            if (parseInt(leftIdx) === parseInt(rightIdx)) {
+                                lineClass = 'match-line match-line-correct';
+                            } else {
+                                lineClass = 'match-line match-line-incorrect';
+                            }
+                        }
+                        
+                        linesHtml += `<path d="M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}" class="${lineClass}"/>`;
                     }
                 });
                 
@@ -1865,6 +1882,8 @@
                         rightEl?.classList.add('border-red-500', 'bg-red-50');
                     }
                 });
+                
+                this.updateMatchLines(true, q);
             }
             
             showClassifyResults(q) {
