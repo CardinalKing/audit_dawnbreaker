@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const axios = require('axios');
+const https = require('https');
 require('dotenv').config();
 
 const app = express();
@@ -534,49 +534,75 @@ app.post('/api/ask-ai', async (req, res) => {
 
     console.log(`[${new Date().toISOString()}] 知识库未命中，正在调用DeepSeek API: "${question}"`);
 
-    try {
-        const deepseekApiKey = process.env.DEEPSEEK_API_KEY || 'sk-40e1c7c64924497896ce944d2b4ca7ff';
-        if (!deepseekApiKey) {
-            throw new Error('DeepSeek API Key 未配置。');
-        }
+    const deepseekApiKey = process.env.DEEPSEEK_API_KEY || 'sk-40e1c7c64924497896ce944d2b4ca7ff';
+    if (!deepseekApiKey) {
+        return res.status(500).json({
+            source: 'error',
+            answer: 'DeepSeek API Key 未配置。'
+        });
+    }
 
-        const response = await axios.post('https://api.deepseek.com/v1/chat/completions', {
-            model: 'deepseek-chat',
-            messages: [
-                {
-                    role: 'system',
-                    content: '你是一位顶尖的审计与财务专家。请根据用户问题，提供专业、准确的回答。回答需严谨、结构清晰，重点突出审计程序、风险点和合规要求。'
-                },
-                { role: 'user', content: question }
-            ],
-            temperature: 0.7,
-            max_tokens: 1000,
-            stream: false
-        }, {
-            headers: {
-                'Authorization': `Bearer ${deepseekApiKey}`,
-                'Content-Type': 'application/json'
+    const postData = JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+            {
+                role: 'system',
+                content: '你是一位顶尖的审计与财务专家。请根据用户问题，提供专业、准确的回答。回答需严谨、结构清晰，重点突出审计程序、风险点和合规要求。'
             },
-            timeout: 60000
+            { role: 'user', content: question }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+        stream: false
+    });
+
+    const options = {
+        hostname: 'api.deepseek.com',
+        path: '/v1/chat/completions',
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${deepseekApiKey}`,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postData)
+        },
+        timeout: 60000
+    };
+
+    const request = https.request(options, (apiRes) => {
+        let data = '';
+        apiRes.on('data', (chunk) => {
+            data += chunk;
         });
-
-        const aiAnswer = beautifyAnswer(response.data.choices[0].message.content);
-        console.log(`[${new Date().toISOString()}] DeepSeek 回答生成成功。`);
-        
-        addToKnowledgeBase(question, aiAnswer);
-
-        res.json({
-            source: 'deepseek_web_search',
-            answer: aiAnswer
+        apiRes.on('end', () => {
+            try {
+                const response = JSON.parse(data);
+                const aiAnswer = beautifyAnswer(response.choices[0].message.content);
+                console.log(`[${new Date().toISOString()}] DeepSeek 回答生成成功。`);
+                addToKnowledgeBase(question, aiAnswer);
+                res.json({
+                    source: 'deepseek_web_search',
+                    answer: aiAnswer
+                });
+            } catch (error) {
+                console.error('解析DeepSeek响应失败：', error);
+                res.status(500).json({
+                    source: 'error',
+                    answer: `抱歉，AI助手在处理您的问题时遇到了错误。\n\n**当前问题的备选思路：** ${question} 通常涉及审计程序、风险识别和合规性检查，建议查阅《中国注册会计师审计准则》或相关财税法规获取官方信息。`
+                });
+            }
         });
+    });
 
-    } catch (error) {
-        console.error('调用DeepSeek API失败：', error.response?.data || error.message);
+    request.on('error', (error) => {
+        console.error('调用DeepSeek API失败：', error.message);
         res.status(500).json({
             source: 'error',
             answer: `抱歉，AI助手在处理您的问题时遇到了网络或服务异常。\n\n**建议您：**\n1. 检查网络连接。\n2. 稍后重试。\n3. 如果问题持续存在，可能是由于API服务临时不可用。\n\n**当前问题的备选思路：** ${question} 通常涉及审计程序、风险识别和合规性检查，建议查阅《中国注册会计师审计准则》或相关财税法规获取官方信息。`
         });
-    }
+    });
+
+    request.write(postData);
+    request.end();
 });
 
 app.get('/api/knowledge-count', (req, res) => {
