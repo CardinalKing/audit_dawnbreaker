@@ -520,25 +520,30 @@ app.get('/api/user/check', authenticateToken, async (req, res) => {
 app.post('/api/ask-ai', async (req, res) => {
     const { question, requireWebSearch = false } = req.body;
 
+    console.log(`[${new Date().toISOString()}] 用户提问: "${question}"`);
+
     if (!requireWebSearch) {
         const matchedAnswer = fuzzyMatchKnowledge(question);
         if (matchedAnswer) {
+            console.log(`[${new Date().toISOString()}] 知识库命中，直接返回答案`);
             return res.json({
                 source: 'knowledge_base',
                 answer: matchedAnswer
             });
         }
+        console.log(`[${new Date().toISOString()}] 知识库未命中`);
     }
-
-    console.log(`[${new Date().toISOString()}] 知识库未命中，正在调用DeepSeek API: "${question}"`);
 
     const deepseekApiKey = process.env.DEEPSEEK_API_KEY || 'sk-40e1c7c64924497896ce944d2b4ca7ff';
     if (!deepseekApiKey) {
+        console.error(`[${new Date().toISOString()}] 错误：DEEPSEEK_API_KEY 未配置`);
         return res.status(500).json({
             source: 'error',
-            answer: 'DeepSeek API Key 未配置。'
+            answer: '服务配置错误：AI功能暂不可用，请联系管理员配置API密钥。'
         });
     }
+
+    console.log(`[${new Date().toISOString()}] 正在调用DeepSeek API`);
 
     const postData = JSON.stringify({
         model: 'deepseek-chat',
@@ -567,35 +572,53 @@ app.post('/api/ask-ai', async (req, res) => {
     };
 
     const request = https.request(options, (apiRes) => {
+        console.log(`[${new Date().toISOString()}] DeepSeek API响应状态码: ${apiRes.statusCode}`);
+        
         let data = '';
         apiRes.on('data', (chunk) => {
             data += chunk;
         });
         apiRes.on('end', () => {
             try {
+                console.log(`[${new Date().toISOString()}] DeepSeek API响应数据: ${data.length} 字节`);
+                
+                if (apiRes.statusCode !== 200) {
+                    const errorResponse = JSON.parse(data);
+                    console.error(`[${new Date().toISOString()}] DeepSeek API错误: ${errorResponse.error?.message || '未知错误'}`);
+                    return res.status(apiRes.statusCode).json({
+                        source: 'error',
+                        answer: `AI服务返回错误：${errorResponse.error?.message || '请求失败'}`
+                    });
+                }
+                
                 const response = JSON.parse(data);
+                if (!response.choices || !response.choices[0] || !response.choices[0].message) {
+                    throw new Error('API响应格式错误');
+                }
+                
                 const aiAnswer = beautifyAnswer(response.choices[0].message.content);
-                console.log(`[${new Date().toISOString()}] DeepSeek 回答生成成功。`);
+                console.log(`[${new Date().toISOString()}] DeepSeek 回答生成成功`);
                 addToKnowledgeBase(question, aiAnswer);
                 res.json({
                     source: 'deepseek_web_search',
                     answer: aiAnswer
                 });
             } catch (error) {
-                console.error('解析DeepSeek响应失败：', error);
+                console.error(`[${new Date().toISOString()}] 解析DeepSeek响应失败：`, error);
+                console.error(`[${new Date().toISOString()}] 原始响应数据: ${data}`);
                 res.status(500).json({
                     source: 'error',
-                    answer: `抱歉，AI助手在处理您的问题时遇到了错误。\n\n**当前问题的备选思路：** ${question} 通常涉及审计程序、风险识别和合规性检查，建议查阅《中国注册会计师审计准则》或相关财税法规获取官方信息。`
+                    answer: `抱歉，AI助手在处理您的问题时遇到了错误。\n\n**错误详情：** ${error.message}\n\n**当前问题的备选思路：** ${question} 通常涉及审计程序、风险识别和合规性检查，建议查阅《中国注册会计师审计准则》或相关财税法规获取官方信息。`
                 });
             }
         });
     });
 
     request.on('error', (error) => {
-        console.error('调用DeepSeek API失败：', error.message);
+        console.error(`[${new Date().toISOString()}] 调用DeepSeek API失败：`, error.message);
         res.status(500).json({
             source: 'error',
-            answer: `抱歉，AI助手在处理您的问题时遇到了网络或服务异常。\n\n**建议您：**\n1. 检查网络连接。\n2. 稍后重试。\n3. 如果问题持续存在，可能是由于API服务临时不可用。\n\n**当前问题的备选思路：** ${question} 通常涉及审计程序、风险识别和合规性检查，建议查阅《中国注册会计师审计准则》或相关财税法规获取官方信息。`
+            answer: `抱歉，AI助手在处理您的问题时遇到了网络或服务异常。\n\n**错误详情：** ${error.message}\n\n**建议您：**\n1. 检查网络连接。\n2. 稍后重试。\n3. 如果问题持续存在，请联系管理员检查API配置。\n\n**当前问题的备选思路：** ${question} 通常涉及审计程序、风险识别和合规性检查，建议查阅《中国注册会计师审计准则》或相关财税法规获取官方信息。`
         });
     });
 
