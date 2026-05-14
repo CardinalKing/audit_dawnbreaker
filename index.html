@@ -228,6 +228,51 @@
             pointer-events: none;
             z-index: 10;
         }
+        
+        /* 计算器样式 */
+        .calc-btn {
+            padding: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            border: none;
+            border-radius: 8px;
+            background: #f0f0f0;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .calc-btn:hover {
+            background: #e0e0e0;
+            transform: scale(1.05);
+        }
+        .calc-operator {
+            background: #1890ff;
+            color: white;
+        }
+        .calc-operator:hover {
+            background: #40a9ff;
+        }
+        .calc-equal {
+            background: #52c41a;
+            color: white;
+        }
+        .calc-equal:hover {
+            background: #73d13d;
+        }
+        .calc-clear {
+            background: #ff4d4f;
+            color: white;
+        }
+        .calc-clear:hover {
+            background: #ff7875;
+        }
+        .calc-delete {
+            background: #faad14;
+            color: white;
+        }
+        .calc-delete:hover {
+            background: #ffc53d;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
@@ -1296,10 +1341,17 @@
 
             renderChapters() {
                 const container = document.getElementById('chapter-list');
-                container.innerHTML = gameChapters.map(chapter => {
+                container.innerHTML = gameChapters.map((chapter, index) => {
                     const isCompleted = this.gameState.completedChapters.includes(chapter.id);
                     const stars = this.gameState.chapterStars[chapter.id] || 0;
-                    const isUnlocked = chapter.id === 'tutorial' || this.gameState.completedChapters.includes('tutorial');
+                    
+                    let isUnlocked = false;
+                    if (index === 0) {
+                        isUnlocked = true;
+                    } else {
+                        const prevChapter = gameChapters[index - 1];
+                        isUnlocked = this.gameState.completedChapters.includes(prevChapter.id);
+                    }
                     
                     return `
                         <div class="chapter-card bg-white p-6 rounded-2xl shadow-lg ${isCompleted ? 'ring-2 ring-green-500' : ''} ${!isUnlocked ? 'locked' : ''}" onclick="${isUnlocked ? `app.openChapter('${chapter.id}')` : ''}">
@@ -2409,6 +2461,14 @@
             renderCaseQuestion() {
                 const q = this.caseQuestions[this.caseQuestionIndex];
                 const total = this.caseQuestions.length;
+                const caseId = this.gameState.currentCase;
+                
+                let dataTable = '';
+                if (caseId === 'yin-guang-xia') {
+                    dataTable = this.getYinGuangXiaTable();
+                } else {
+                    dataTable = this.getLvDaDiTable();
+                }
                 
                 let optionsHtml = '';
                 if (q.content.includes('<br>') && q.content.includes('A.')) {
@@ -2425,7 +2485,52 @@
                 }
                 
                 document.getElementById('case-content').innerHTML = `
-                    <div class="mb-6">
+                    <div class="grid lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2">
+                            <div class="bg-white rounded-xl shadow-sm border border-pink-100 p-4">
+                                <h4 class="font-bold text-dark mb-4"><i class="fa fa-table mr-2"></i>数据表格</h4>
+                                <div class="overflow-x-auto">
+                                    ${dataTable}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="bg-white rounded-xl shadow-sm border border-pink-100 p-4">
+                                <h4 class="font-bold text-dark mb-4"><i class="fa fa-calculator mr-2"></i>计算器</h4>
+                                <div class="calculator">
+                                    <input type="text" id="calc-display" class="w-full p-3 text-right text-lg bg-gray-100 rounded-lg mb-3 font-mono" readonly>
+                                    <div class="grid grid-cols-4 gap-2">
+                                        <button onclick="app.calcInput('7')" class="calc-btn">7</button>
+                                        <button onclick="app.calcInput('8')" class="calc-btn">8</button>
+                                        <button onclick="app.calcInput('9')" class="calc-btn">9</button>
+                                        <button onclick="app.calcInput('/')" class="calc-btn calc-operator">/</button>
+                                        <button onclick="app.calcInput('4')" class="calc-btn">4</button>
+                                        <button onclick="app.calcInput('5')" class="calc-btn">5</button>
+                                        <button onclick="app.calcInput('6')" class="calc-btn">6</button>
+                                        <button onclick="app.calcInput('*')" class="calc-btn calc-operator">*</button>
+                                        <button onclick="app.calcInput('1')" class="calc-btn">1</button>
+                                        <button onclick="app.calcInput('2')" class="calc-btn">2</button>
+                                        <button onclick="app.calcInput('3')" class="calc-btn">3</button>
+                                        <button onclick="app.calcInput('-')" class="calc-btn calc-operator">-</button>
+                                        <button onclick="app.calcInput('0')" class="calc-btn">0</button>
+                                        <button onclick="app.calcInput('.')" class="calc-btn">.</button>
+                                        <button onclick="app.calcEqual()" class="calc-btn calc-equal">=</button>
+                                        <button onclick="app.calcInput('+')" class="calc-btn calc-operator">+</button>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2 mt-2">
+                                        <button onclick="app.calcInput('Math.pow(')" class="calc-btn calc-operator">x^y</button>
+                                        <button onclick="app.calcInput('Math.sqrt(')" class="calc-btn calc-operator">√</button>
+                                        <button onclick="app.calcClear()" class="calc-btn calc-clear">清空</button>
+                                        <button onclick="app.calcDelete()" class="calc-btn calc-delete">删除</button>
+                                    </div>
+                                    <button onclick="app.calcCopyResult()" class="w-full mt-3 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-all">
+                                        <i class="fa fa-copy mr-1"></i>复制结果
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6">
                         <div class="flex justify-between items-center mb-3">
                             <span class="text-sm text-gray-500">第 ${this.caseQuestionIndex + 1} / ${total} 题</span>
                             <button onclick="app.showCaseHint()" class="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm">
@@ -2436,13 +2541,13 @@
                             <div class="h-full bg-gradient-to-r from-pink-500 to-rose-500 transition-all" style="width: ${((this.caseQuestionIndex + 1) / total) * 100}%"></div>
                         </div>
                     </div>
-                    <div class="bg-pink-50 p-5 rounded-xl mb-6">
+                    <div class="mt-6 bg-pink-50 p-5 rounded-xl">
                         <h4 class="font-medium text-dark mb-2">${q.title}</h4>
+                        <div class="space-y-3 mt-4">
+                            ${optionsHtml}
+                        </div>
                     </div>
-                    <div class="space-y-3 mb-6">
-                        ${optionsHtml}
-                    </div>
-                    <div class="flex gap-3">
+                    <div class="flex gap-3 mt-6">
                         ${this.caseQuestionIndex > 0 ? `
                             <button onclick="app.prevCaseQuestion()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-all">
                                 <i class="fa fa-arrow-left mr-2"></i>上一题
@@ -2454,6 +2559,56 @@
                     </div>
                     <div id="case-result" class="mt-6 hidden"></div>
                 `;
+            }
+            
+            calcInput(value) {
+                const display = document.getElementById('calc-display');
+                if (display) {
+                    if (value === 'Math.pow(') {
+                        display.value += '(';
+                    } else if (value === 'Math.sqrt(') {
+                        display.value += '√(';
+                    } else {
+                        display.value += value;
+                    }
+                }
+            }
+            
+            calcEqual() {
+                const display = document.getElementById('calc-display');
+                if (display) {
+                    try {
+                        let expression = display.value;
+                        expression = expression.replace(/√\(/g, 'Math.sqrt(');
+                        expression = expression.replace(/\^/g, '**');
+                        const result = eval(expression);
+                        display.value = result;
+                    } catch (e) {
+                        display.value = '错误';
+                    }
+                }
+            }
+            
+            calcClear() {
+                const display = document.getElementById('calc-display');
+                if (display) {
+                    display.value = '';
+                }
+            }
+            
+            calcDelete() {
+                const display = document.getElementById('calc-display');
+                if (display) {
+                    display.value = display.value.slice(0, -1);
+                }
+            }
+            
+            calcCopyResult() {
+                const display = document.getElementById('calc-display');
+                if (display && display.value) {
+                    navigator.clipboard.writeText(display.value);
+                    this.showToast('结果已复制到剪贴板', 'success');
+                }
             }
 
             showCaseHint() {
