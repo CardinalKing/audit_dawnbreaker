@@ -2093,11 +2093,13 @@
                 const choices = this.getTheaterChoices(scenarioIndex);
                 
                 document.getElementById('theater-content').innerHTML = `
-                    <div class="text-center mb-8">
+                    <div class="text-center mb-6">
                         <div class="w-20 h-20 bg-gradient-to-br from-secondary to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                             <i class="fa fa-theater-masks text-white text-3xl"></i>
                         </div>
-                        <p class="text-gray-600">请选择你的行动：</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-teal-50 to-blue-50 rounded-xl p-6 mb-6 border border-teal-100">
+                        <p class="text-gray-700 leading-relaxed text-center">${event.description || '请根据当前情境做出选择：'}</p>
                     </div>
                     <div class="space-y-4">
                         ${choices.map((choice, idx) => `
