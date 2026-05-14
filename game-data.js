@@ -319,21 +319,21 @@ const achievements = [
 
 // 审计剧场事件
 const theaterEvents = [
-    { id: 1, chapter: '第一章 新人报道', year: 1, scenario: '事务所会议室', choices: 3 },
-    { id: 2, chapter: '第一章 新人报道', year: 1, scenario: '项目经理办公室', choices: 3 },
-    { id: 3, chapter: '第二章：成长之痛', year: 2, scenario: '高级餐厅包间', choices: 3 },
-    { id: 4, chapter: '第二章：成长之痛', year: 2, scenario: '项目复盘会', choices: 3 },
-    { id: 5, chapter: '第二章：成长之痛', year: 2, scenario: '深夜办公室', choices: 3 },
+    { id: 1, chapter: '第一章 新人报道', year: 1, scenario: '事务所会议室', description: '作为一名刚刚入职的审计新人，你站在会议室门口。项目经理正在向团队介绍你。其他同事的目光都集中在你身上，你需要做出第一印象。', choices: 3 },
+    { id: 2, chapter: '第一章 新人报道', year: 1, scenario: '项目经理办公室', description: '项目经理把你叫到办公室，递给你一份审计计划。"这份项目对你来说是个很好的起点，"他说，"你觉得自己能胜任吗？"', choices: 3 },
+    { id: 3, chapter: '第二章：成长之痛', year: 2, scenario: '高级餐厅包间', description: '客户邀请整个审计团队共进晚餐。席间，客户财务总监悄悄对你说："有些小问题能不能通融一下？这对大家都好。"', choices: 3 },
+    { id: 4, chapter: '第二章：成长之痛', year: 2, scenario: '项目复盘会', description: '审计项目结束后，团队进行复盘。经理指出了几个你负责的环节存在问题，要求你写一份改进报告。', choices: 3 },
+    { id: 5, chapter: '第二章：成长之痛', year: 2, scenario: '深夜办公室', description: '已是凌晨两点，你还在加班核对凭证。明天就是报告截止日期，但你发现了一笔重大异常交易。你该怎么办？', choices: 3 },
     { id: 6, chapter: '第三章：十字路口', year: 3, scenario: 'HR办公室', choices: 3 },
     { id: 7, chapter: '第三章：十字路口', year: 3, scenario: '家里', choices: 3 },
     { id: 8, chapter: '第三章：十字路口', year: 3, scenario: '客户仓库', choices: 3 },
-    { id: 9, chapter: '第四章：权力游戏', year: 5, scenario: '合伙人办公室', choices: 3 },
-    { id: 10, chapter: '第四章：权力游戏', year: 5, scenario: '项目危机会议', choices: 3 },
-    { id: 11, chapter: '第四章：权力游戏', year: 5, scenario: '医院诊室', choices: 3 },
-    { id: 12, chapter: '第五章：终极抉择', year: 6, scenario: '证监会会议室', choices: 3 },
+    { id: 9, chapter: '第四章：权力游戏', year: 5, scenario: '合伙人办公室', description: '合伙人把你叫到办公室，告诉你有一个重要的IPO项目需要你负责。但这个客户是合伙人的老朋友，他暗示你"灵活处理"某些问题。', choices: 3 },
+    { id: 10, chapter: '第四章：权力游戏', year: 5, scenario: '项目危机会议', description: '审计过程中发现客户存在重大舞弊迹象。项目团队召开紧急会议，讨论是否要向监管机构报告。', choices: 3 },
+    { id: 11, chapter: '第四章：权力游戏', year: 5, scenario: '医院诊室', description: '长期加班和巨大压力让你身体出现了问题。医生建议你休息一段时间，但项目正处于关键阶段。', choices: 3 },
+    { id: 12, chapter: '第五章：终极抉择', year: 6, scenario: '证监会会议室', description: '证监会对你负责的一个项目展开调查。调查人员询问你关于审计程序的执行情况，有些问题让你感到不安。', choices: 3 },
     { id: 13, chapter: '第五章：终极抉择', year: 6, scenario: '家中', choices: 3 },
-    { id: 14, chapter: '第五章：终极抉择', year: 6, scenario: '猎头电话', choices: 3 },
-    { id: 15, chapter: '第五章：终极抉择', year: 6, scenario: '深夜', choices: 3 }
+    { id: 14, chapter: '第五章：终极抉择', year: 6, scenario: '猎头电话', description: '一家大型企业向你抛出橄榄枝，开出了远超当前薪资的待遇。但新职位可能会让你面临更多的道德考验。', choices: 3 },
+    { id: 15, chapter: '第五章：终极抉择', year: 6, scenario: '深夜', description: '深夜，你独自坐在办公室里，回顾这些年的审计生涯。你开始思考：什么才是真正重要的？', choices: 3 }
 ];
 
 // 审计剧场结局
