@@ -2229,18 +2229,83 @@
                 `).join('');
             }
 
+            showCaseDialogue() {
+                const caseId = this.gameState.currentCase;
+                const events = caseId === 'yin-guang-xia' ? auditCases.yinGuangXiaEvents : auditCases.lvDaDiEvents;
+                const step = this.gameState.caseDialogueStep || 0;
+                
+                if (step >= events.length) {
+                    document.getElementById('case-dialogue-content').innerHTML = `
+                        <div class="text-center p-6 bg-green-50 rounded-xl">
+                            <i class="fa fa-check-circle text-green-500 text-4xl mb-3"></i>
+                            <p class="text-green-700 font-medium">案例故事阅读完毕！</p>
+                            <p class="text-sm text-gray-600 mt-2">现在可以开始分析财务数据，解答计算题了。</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const event = events[step];
+                const isLastStep = step === events.length - 1;
+                
+                document.getElementById('case-dialogue-section').classList.remove('hidden');
+                document.getElementById('case-dialogue-content').innerHTML = `
+                    <div class="space-y-4">
+                        <div class="p-4 bg-white rounded-xl border-l-4 border-pink-500 shadow-sm">
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <i class="fa fa-user-tie text-pink-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-gray-700 leading-relaxed">${event.text}</p>
+                                </div>
+                            </div>
+                        </div>
+                        ${event.choices && event.choices.length > 0 ? `
+                            <div class="mt-4 space-y-2">
+                                ${event.choices.map((choice, idx) => `
+                                    <button onclick="app.nextCaseDialogue()" class="w-full p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-xl border-2 border-pink-200 hover:border-pink-400 hover:shadow-md transition-all text-left">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 bg-pink-500 text-white rounded-lg flex items-center justify-center font-bold text-sm">
+                                                ${String.fromCharCode(65 + idx)}
+                                            </div>
+                                            <span class="text-gray-700">${choice.text}</span>
+                                        </div>
+                                    </button>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <button onclick="app.nextCaseDialogue()" class="w-full mt-4 p-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl hover:shadow-lg transition-all font-medium">
+                                <i class="fa fa-arrow-right mr-2"></i>继续
+                            </button>
+                        `}
+                        <div class="text-center text-sm text-gray-500 mt-3">
+                            进度：${step + 1} / ${events.length}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            nextCaseDialogue() {
+                const caseId = this.gameState.currentCase;
+                const events = caseId === 'yin-guang-xia' ? auditCases.yinGuangXiaEvents : auditCases.lvDaDiEvents;
+                this.gameState.caseDialogueStep = (this.gameState.caseDialogueStep || 0) + 1;
+                this.showCaseDialogue();
+            }
+            
             openCase(caseId) {
                 const c = auditCases.scenarios.find(x => x.id === caseId);
                 if (!c) return;
                 
                 this.gameState.currentCase = caseId;
+                this.gameState.caseDialogueStep = 0;
                 
                 document.getElementById('case-title').textContent = c.title;
                 document.getElementById('case-subtitle').textContent = c.year + '年经典审计案例';
                 
-                let questions = caseId === 'yin-guang-xia' ? yinGuangXiaQuestions : lvDaDiQuestions;
-                let dataTable = '';
+                let events = caseId === 'yin-guang-xia' ? auditCases.yinGuangXiaEvents : auditCases.lvDaDiEvents;
                 
+                let dataTable = '';
                 if (caseId === 'yin-guang-xia') {
                     dataTable = this.getYinGuangXiaTable();
                 } else {
@@ -2248,6 +2313,21 @@
                 }
                 
                 document.getElementById('case-content').innerHTML = `
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="font-bold text-dark">案例背景</h4>
+                            <button onclick="app.showCaseDialogue()" class="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg font-medium hover:shadow-lg transition-all">
+                                <i class="fa fa-book-reader mr-2"></i>阅读案例故事
+                            </button>
+                        </div>
+                        <div class="p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-xl border border-pink-100 mb-4">
+                            <p class="text-gray-700">${c.description}</p>
+                        </div>
+                    </div>
+                    <div id="case-dialogue-section" class="hidden mb-6">
+                        <h4 class="font-bold text-dark mb-4"><i class="fa fa-comments mr-2"></i>案例发展</h4>
+                        <div id="case-dialogue-content"></div>
+                    </div>
                     <div class="mb-6">
                         <div class="flex justify-between items-center mb-4">
                             <h4 class="font-bold text-dark">财务数据分析</h4>
