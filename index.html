@@ -103,6 +103,10 @@
         }
         
         /* 连线题样式 */
+        .match-container {
+            position: relative;
+            min-height: 200px;
+        }
         .match-item {
             cursor: pointer;
             transition: all 0.3s ease;
@@ -125,6 +129,7 @@
             height: 100%;
             pointer-events: none;
             z-index: 1;
+            overflow: visible;
         }
         .match-line {
             fill: none;
@@ -1473,8 +1478,8 @@
                 `).join('');
                 
                 return `
-                    <div class="relative">
-                        <div class="match-svg" id="match-svg"></div>
+                    <div class="relative match-container">
+                        <svg class="match-svg" id="match-svg"></svg>
                         <div class="grid grid-cols-2 gap-8 relative z-20">
                             <div class="space-y-4">
                                 <h5 class="text-sm font-bold text-gray-500 mb-3"><i class="fa fa-arrow-right mr-1"></i>点击配对</h5>
@@ -1633,40 +1638,49 @@
             }
             
             updateMatchLines(showResults = false, question = null) {
-                const svg = document.getElementById('match-svg');
-                if (!svg) return;
-                
-                let linesHtml = '';
-                const completed = this.matchSelections?.completed || {};
-                
-                Object.entries(completed).forEach(([leftIdx, rightIdx]) => {
-                    const leftEl = document.querySelector(`[data-match-left="${leftIdx}"]`);
-                    const rightEl = document.querySelector(`[data-match-right="${rightIdx}"]`);
+                setTimeout(() => {
+                    const svg = document.getElementById('match-svg');
+                    if (!svg) return;
                     
-                    if (leftEl && rightEl) {
-                        const leftRect = leftEl.getBoundingClientRect();
-                        const rightRect = rightEl.getBoundingClientRect();
-                        const containerRect = svg.parentElement.getBoundingClientRect();
+                    const container = svg.parentElement;
+                    const containerRect = container.getBoundingClientRect();
+                    
+                    svg.setAttribute('width', containerRect.width);
+                    svg.setAttribute('height', containerRect.height);
+                    svg.style.width = containerRect.width + 'px';
+                    svg.style.height = containerRect.height + 'px';
+                    
+                    let linesHtml = '';
+                    const completed = this.matchSelections?.completed || {};
+                    
+                    Object.entries(completed).forEach(([leftIdx, rightIdx]) => {
+                        const leftEl = container.querySelector(`[data-match-left="${leftIdx}"]`);
+                        const rightEl = container.querySelector(`[data-match-right="${rightIdx}"]`);
                         
-                        const x1 = leftRect.right - containerRect.left;
-                        const y1 = leftRect.top + leftRect.height / 2 - containerRect.top;
-                        const x2 = rightRect.left - containerRect.left;
-                        const y2 = rightRect.top + rightRect.height / 2 - containerRect.top;
-                        
-                        let lineClass = 'match-line';
-                        if (showResults && question) {
-                            if (parseInt(leftIdx) === parseInt(rightIdx)) {
-                                lineClass = 'match-line match-line-correct';
-                            } else {
-                                lineClass = 'match-line match-line-incorrect';
+                        if (leftEl && rightEl) {
+                            const leftRect = leftEl.getBoundingClientRect();
+                            const rightRect = rightEl.getBoundingClientRect();
+                            
+                            const x1 = leftRect.right - containerRect.left;
+                            const y1 = leftRect.top - containerRect.top + leftRect.height / 2;
+                            const x2 = rightRect.left - containerRect.left;
+                            const y2 = rightRect.top - containerRect.top + rightRect.height / 2;
+                            
+                            let lineClass = 'match-line';
+                            if (showResults && question) {
+                                if (parseInt(leftIdx) === parseInt(rightIdx)) {
+                                    lineClass = 'match-line match-line-correct';
+                                } else {
+                                    lineClass = 'match-line match-line-incorrect';
+                                }
                             }
+                            
+                            linesHtml += `<path d="M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}" class="${lineClass}"/>`;
                         }
-                        
-                        linesHtml += `<path d="M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}" class="${lineClass}"/>`;
-                    }
-                });
-                
-                svg.innerHTML = linesHtml;
+                    });
+                    
+                    svg.innerHTML = linesHtml;
+                }, 10);
             }
             
             handleDragStart(e) {
