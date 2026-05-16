@@ -4,16 +4,38 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const https = require('https');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 9000;
 const JWT_SECRET = process.env.JWT_SECRET || 'audit-learning-secret-key-2024';
+
 const KNOWLEDGE_BASE_FILE = path.join(__dirname, 'knowledge-base.json');
 
-app.use(cors());
-app.use(express.json());
+// 从文件加载知识库
+function loadKnowledgeBase() {
+    try {
+        if (fs.existsSync(KNOWLEDGE_BASE_FILE)) {
+            const data = fs.readFileSync(KNOWLEDGE_BASE_FILE, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (error) {
+        console.error('加载知识库失败:', error);
+    }
+    return null;
+}
 
+// 保存知识库到文件
+function saveKnowledgeBase(data) {
+    try {
+        fs.writeFileSync(KNOWLEDGE_BASE_FILE, JSON.stringify(data, null, 2), 'utf8');
+        console.log(`[${new Date().toISOString()}] 知识库已保存到文件，共 ${data.length} 条记录`);
+    } catch (error) {
+        console.error('保存知识库失败:', error);
+    }
+}
+
+// 审计知识库 - 初始内置知识库
 let auditKnowledgeBase = [
     {
         coreKeywords: ['财务申报', '申报流程', '税务申报', '增值税申报', '企业所得税申报', '申报注意事项'],
@@ -52,33 +74,14 @@ let auditKnowledgeBase = [
     }
 ];
 
-function loadKnowledgeBase() {
-    try {
-        if (fs.existsSync(KNOWLEDGE_BASE_FILE)) {
-            const data = fs.readFileSync(KNOWLEDGE_BASE_FILE, 'utf8');
-            return JSON.parse(data);
-        }
-    } catch (error) {
-        console.error('加载知识库失败:', error);
-    }
-    return null;
-}
-
-function saveKnowledgeBase(data) {
-    try {
-        fs.writeFileSync(KNOWLEDGE_BASE_FILE, JSON.stringify(data, null, 2), 'utf8');
-        console.log(`[${new Date().toISOString()}] 知识库已保存到文件，共 ${data.length} 条记录`);
-    } catch (error) {
-        console.error('保存知识库失败:', error);
-    }
-}
-
+// 尝试从文件加载知识库
 const loadedKB = loadKnowledgeBase();
 if (loadedKB && loadedKB.length > 0) {
     auditKnowledgeBase = loadedKB;
     console.log(`[${new Date().toISOString()}] 已从文件加载知识库，共 ${auditKnowledgeBase.length} 条记录`);
 }
 
+// 从问题中提取关键词
 function extractKeywords(question) {
     const stopWords = ["如何", "怎么", "什么", "为什么", "通过", "出来", "的", "了", "是", "在", "和", "及", "与", "等", "呢", "吗", "请问", "我想知道", "介绍一下", "解释一下", "说一下", "谈谈", "介绍", "有关", "相关", "哪个", "哪些", "怎样", "何为", "一下", "能给", "能说"];
     const questionLower = question.trim().toLowerCase()
@@ -117,6 +120,7 @@ function extractKeywords(question) {
     };
 }
 
+// 将新问题添加到知识库
 function addToKnowledgeBase(question, answer) {
     const { coreKeywords, semanticTags } = extractKeywords(question);
     
@@ -134,6 +138,7 @@ function addToKnowledgeBase(question, answer) {
     console.log(`[${new Date().toISOString()}] 提取的关键词: ${coreKeywords.join(', ')}`);
 }
 
+// 知识库模糊匹配函数
 function fuzzyMatchKnowledge(question) {
     const stopWords = ["如何", "怎么", "什么", "通过", "出来", "的", "了", "是", "在", "和", "及", "与", "等", "呢", "吗", "展开", "链接", "找到"];
     const questionClean = question.trim().toLowerCase().replace(/[？?。!！]/g, '');
@@ -179,6 +184,7 @@ function fuzzyMatchKnowledge(question) {
     return bestMatch;
 }
 
+// 美化AI返回的内容，去除Markdown格式
 function beautifyAnswer(answer) {
     if (!answer) return answer;
     
@@ -206,6 +212,90 @@ function beautifyAnswer(answer) {
     
     return beautified;
 }
+
+// 核心路由：处理AI提问
+app.post('/api/ask-ai', async (req, res) => {
+    const { question, requireWebSearch = false } = req.body;
+
+    // 情况①：优先查询知识库 (非强制联网时)
+    if (!requireWebSearch) {
+        const matchedAnswer = fuzzyMatchKnowledge(question);
+        if (matchedAnswer) {
+            return res.json({
+                source: 'knowledge_base',
+                answer: matchedAnswer
+            });
+        }
+    }
+
+    // 情况②：知识库无匹配，或用户质疑触发强制联网
+    console.log(`[${new Date().toISOString()}] 知识库未命中，正在调用DeepSeek联网搜索: "${question}"`);
+
+    try {
+        const deepseekApiKey = process.env.DEEPSEEK_API_KEY || 'sk-40e1c7c64924497896ce944d2b4ca7ff';
+        if (!deepseekApiKey) {
+            throw new Error('DeepSeek API Key 未配置。请检查环境变量。');
+        }
+
+        const response = await axios.post('https://api.deepseek.com/v1/chat/completions', {
+            model: 'deepseek-chat',
+            messages: [
+                {
+                    role: 'system',
+                    content: '你是一位顶尖的审计与财务专家。请根据用户问题，提供专业、准确的回答。回答需严谨、结构清晰，重点突出审计程序、风险点和合规要求。'
+                },
+                { role: 'user', content: question }
+            ],
+            temperature: 0.7,
+            max_tokens: 1000,
+            stream: false
+        }, {
+            headers: {
+                'Authorization': `Bearer ${deepseekApiKey}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 60000
+        });
+
+        const aiAnswer = beautifyAnswer(response.data.choices[0].message.content);
+        console.log(`[${new Date().toISOString()}] DeepSeek 回答生成成功。`);
+        
+        addToKnowledgeBase(question, aiAnswer);
+
+        res.json({
+            source: 'deepseek_web_search',
+            answer: aiAnswer
+        });
+
+    } catch (error) {
+        console.error('调用DeepSeek API失败：', error.response?.data || error.message);
+        res.status(500).json({
+            source: 'error',
+            answer: `抱歉，AI助手在处理您的问题时遇到了网络或服务异常。\n\n**错误详情：** ${error.message}\n\n**建议您：**\n1. 检查网络连接。\n2. 稍后重试。\n3. 如果问题持续存在，可能是由于API服务临时不可用。\n\n**当前问题的备选思路：** ${question} 通常涉及审计程序、风险识别和合规性检查，建议查阅《中国注册会计师审计准则》或相关财税法规获取官方信息。`
+        });
+    }
+});
+
+// 健康检查接口
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'running', 
+        knowledge_base_items: auditKnowledgeBase.length,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// 知识库统计接口
+app.get('/api/knowledge-count', (req, res) => {
+    res.json({ 
+        count: auditKnowledgeBase.length,
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(__dirname));
 
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -516,124 +606,6 @@ app.get('/api/user/check', authenticateToken, async (req, res) => {
         res.status(500).json({ success: false, message: '服务器错误' });
     }
 });
-
-app.post('/api/ask-ai', async (req, res) => {
-    const { question, requireWebSearch = false } = req.body;
-
-    console.log(`[${new Date().toISOString()}] 用户提问: "${question}"`);
-
-    if (!requireWebSearch) {
-        const matchedAnswer = fuzzyMatchKnowledge(question);
-        if (matchedAnswer) {
-            console.log(`[${new Date().toISOString()}] 知识库命中，直接返回答案`);
-            return res.json({
-                source: 'knowledge_base',
-                answer: matchedAnswer
-            });
-        }
-        console.log(`[${new Date().toISOString()}] 知识库未命中`);
-    }
-
-    const deepseekApiKey = process.env.DEEPSEEK_API_KEY || 'sk-40e1c7c64924497896ce944d2b4ca7ff';
-    if (!deepseekApiKey) {
-        console.error(`[${new Date().toISOString()}] 错误：DEEPSEEK_API_KEY 未配置`);
-        return res.status(500).json({
-            source: 'error',
-            answer: '服务配置错误：AI功能暂不可用，请联系管理员配置API密钥。'
-        });
-    }
-
-    console.log(`[${new Date().toISOString()}] 正在调用DeepSeek API`);
-
-    const postData = JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-            {
-                role: 'system',
-                content: '你是一位顶尖的审计与财务专家。请根据用户问题，提供专业、准确的回答。回答需严谨、结构清晰，重点突出审计程序、风险点和合规要求。'
-            },
-            { role: 'user', content: question }
-        ],
-        temperature: 0.7,
-        max_tokens: 1000,
-        stream: false
-    });
-
-    const options = {
-        hostname: 'api.deepseek.com',
-        path: '/v1/chat/completions',
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${deepseekApiKey}`,
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(postData)
-        },
-        timeout: 60000
-    };
-
-    const request = https.request(options, (apiRes) => {
-        console.log(`[${new Date().toISOString()}] DeepSeek API响应状态码: ${apiRes.statusCode}`);
-        
-        let data = '';
-        apiRes.on('data', (chunk) => {
-            data += chunk;
-        });
-        apiRes.on('end', () => {
-            try {
-                console.log(`[${new Date().toISOString()}] DeepSeek API响应数据: ${data.length} 字节`);
-                
-                if (apiRes.statusCode !== 200) {
-                    const errorResponse = JSON.parse(data);
-                    console.error(`[${new Date().toISOString()}] DeepSeek API错误: ${errorResponse.error?.message || '未知错误'}`);
-                    return res.status(apiRes.statusCode).json({
-                        source: 'error',
-                        answer: `AI服务返回错误：${errorResponse.error?.message || '请求失败'}`
-                    });
-                }
-                
-                const response = JSON.parse(data);
-                if (!response.choices || !response.choices[0] || !response.choices[0].message) {
-                    throw new Error('API响应格式错误');
-                }
-                
-                const aiAnswer = beautifyAnswer(response.choices[0].message.content);
-                console.log(`[${new Date().toISOString()}] DeepSeek 回答生成成功`);
-                addToKnowledgeBase(question, aiAnswer);
-                res.json({
-                    source: 'deepseek_web_search',
-                    answer: aiAnswer
-                });
-            } catch (error) {
-                console.error(`[${new Date().toISOString()}] 解析DeepSeek响应失败：`, error);
-                console.error(`[${new Date().toISOString()}] 原始响应数据: ${data}`);
-                res.status(500).json({
-                    source: 'error',
-                    answer: `抱歉，AI助手在处理您的问题时遇到了错误。\n\n**错误详情：** ${error.message}\n\n**当前问题的备选思路：** ${question} 通常涉及审计程序、风险识别和合规性检查，建议查阅《中国注册会计师审计准则》或相关财税法规获取官方信息。`
-                });
-            }
-        });
-    });
-
-    request.on('error', (error) => {
-        console.error(`[${new Date().toISOString()}] 调用DeepSeek API失败：`, error.message);
-        res.status(500).json({
-            source: 'error',
-            answer: `抱歉，AI助手在处理您的问题时遇到了网络或服务异常。\n\n**错误详情：** ${error.message}\n\n**建议您：**\n1. 检查网络连接。\n2. 稍后重试。\n3. 如果问题持续存在，请联系管理员检查API配置。\n\n**当前问题的备选思路：** ${question} 通常涉及审计程序、风险识别和合规性检查，建议查阅《中国注册会计师审计准则》或相关财税法规获取官方信息。`
-        });
-    });
-
-    request.write(postData);
-    request.end();
-});
-
-app.get('/api/knowledge-count', (req, res) => {
-    res.json({ 
-        count: auditKnowledgeBase.length,
-        timestamp: new Date().toISOString()
-    });
-});
-
-app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
