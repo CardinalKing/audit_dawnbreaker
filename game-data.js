@@ -317,23 +317,564 @@ const achievements = [
     { id: 'special5', name: '觉醒者', description: '在45岁突然顿悟，出家/归隐，留下无数传说。', icon: '🧘', category: '特殊' }
 ];
 
-// 审计剧场事件
+// 审计剧场完整剧情
 const theaterEvents = [
-    { id: 1, chapter: '第一章 新人报道', year: 1, scenario: '事务所会议室', choices: 3 },
-    { id: 2, chapter: '第一章 新人报道', year: 1, scenario: '项目经理办公室', choices: 3 },
-    { id: 3, chapter: '第二章：成长之痛', year: 2, scenario: '高级餐厅包间', choices: 3 },
-    { id: 4, chapter: '第二章：成长之痛', year: 2, scenario: '项目复盘会', choices: 3 },
-    { id: 5, chapter: '第二章：成长之痛', year: 2, scenario: '深夜办公室', choices: 3 },
-    { id: 6, chapter: '第三章：十字路口', year: 3, scenario: 'HR办公室', choices: 3 },
-    { id: 7, chapter: '第三章：十字路口', year: 3, scenario: '家里', choices: 3 },
-    { id: 8, chapter: '第三章：十字路口', year: 3, scenario: '客户仓库', choices: 3 },
-    { id: 9, chapter: '第四章：权力游戏', year: 5, scenario: '合伙人办公室', choices: 3 },
-    { id: 10, chapter: '第四章：权力游戏', year: 5, scenario: '项目危机会议', choices: 3 },
-    { id: 11, chapter: '第四章：权力游戏', year: 5, scenario: '医院诊室', choices: 3 },
-    { id: 12, chapter: '第五章：终极抉择', year: 6, scenario: '证监会会议室', choices: 3 },
-    { id: 13, chapter: '第五章：终极抉择', year: 6, scenario: '家中', choices: 3 },
-    { id: 14, chapter: '第五章：终极抉择', year: 6, scenario: '猎头电话', choices: 3 },
-    { id: 15, chapter: '第五章：终极抉择', year: 6, scenario: '深夜', choices: 3 }
+    {
+        id: 1,
+        chapter: '第一章 新人报道',
+        year: 1,
+        scenario: '事务所会议室',
+        narration: [
+            '2017年盛夏，你以优异成绩从财经大学毕业，',
+            '通过层层面试，终于入职「信达会计师事务所」。',
+            '这一天，你来到会议室参加入职培训。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '张所长',
+                text: '欢迎加入信达！审计这个行业，说简单很简单，说复杂也很复杂。记住两句话——'
+            },
+            {
+                speaker: 'boss',
+                name: '张所长',
+                text: '「不做假账」是底线，「专业胜任」是根本。年轻人，好好干！'
+            }
+        ],
+        choices: [
+            {
+                text: '「请所长放心，我一定坚守原则！」',
+                effect: { principle: 15, courage: 5 },
+                response: '张所长满意地点点头：「好样的，有这股劲就好！」'
+            },
+            {
+                text: '「我会努力学习，尽快成长！」',
+                effect: { wisdom: 10, potential: 10 },
+                response: '张所长微笑道：「态度不错，年轻人就要有上进心！」'
+            },
+            {
+                text: '「谢谢所长，我先去熟悉工作了。」',
+                effect: { network: 5, career: 5 },
+                response: '张所长摆摆手：「去吧去吧，好好跟你的项目经理学习！」'
+            }
+        ]
+    },
+    {
+        id: 2,
+        chapter: '第一章 新人报道',
+        year: 1,
+        scenario: '项目经理办公室',
+        narration: [
+            '培训结束后，你被分配给资深项目经理——李明。',
+            '你来到李明的办公室报到。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '李明',
+                text: '你好，我是李明。接下来的一年里，你跟着我做项目。审计这行，加班是常态，准备好了吗？'
+            }
+        ],
+        choices: [
+            {
+                text: '「准备好了！再苦再累我也不怕！」',
+                effect: { courage: 10, career: 10 },
+                response: '李明眼中闪过一丝欣赏：「好，年轻人就要有这股拼劲！」'
+            },
+            {
+                text: '「我会努力平衡工作和生活的。」',
+                effect: { wisdom: 10, health: 10 },
+                response: '李明点点头：「嗯，能想到这点也不错，身体是革命的本钱。」'
+            },
+            {
+                text: '「请问我们主要做什么类型的项目？」',
+                effect: { wisdom: 15, potential: 5 },
+                response: '李明笑着说：「好问题！我们主要做上市公司年报审计，能学到很多东西。」'
+            }
+        ]
+    },
+    {
+        id: 3,
+        chapter: '第二章 成长之痛',
+        year: 2,
+        scenario: '高级餐厅包间',
+        narration: [
+            '入职第二年，你已经成长为能独当一面的审计员。',
+            '这一天，客户「星辰科技」的财务总监请项目组吃饭。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '王总监',
+                text: '李经理，今年的审计还请多关照。有些「小问题」，灵活处理一下，大家都方便。'
+            },
+            {
+                speaker: 'boss',
+                name: '李明',
+                text: '王总监，您说笑了。我们都是按准则办事，该怎么样就怎么样。'
+            },
+            {
+                speaker: 'boss',
+                name: '王总监',
+                text: '（转向你）小同志，你是新人，有些事可以慢慢学。来，这张卡你拿着，平时买杯咖啡。'
+            }
+        ],
+        choices: [
+            {
+                text: '「谢谢王总监，但我不能收！」',
+                effect: { principle: 20, network: -5 },
+                response: '王总监脸色有些难看，但李明赞许地看了你一眼。'
+            },
+            {
+                text: '「这怎么好意思...（看向李明）」',
+                effect: { principle: 5, wisdom: 10 },
+                response: '李明马上说：「王总监，您太客气了，我们真不能收。」'
+            },
+            {
+                text: '「谢谢王总监，那我就不客气了。」',
+                effect: { principle: -15, money: 10, risk: 10 },
+                response: '王总监满意地笑了，李明却皱起了眉头。'
+            }
+        ]
+    },
+    {
+        id: 4,
+        chapter: '第二章 成长之痛',
+        year: 2,
+        scenario: '项目复盘会',
+        narration: [
+            '星辰科技的审计项目结束了，一切顺利。',
+            '但你心里总有些不安...'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '李明',
+                text: '这次项目大家辛苦了！特别是你，表现不错。'
+            },
+            {
+                speaker: 'boss',
+                name: '李明',
+                text: '不过我要提醒你——审计这行，有些红线碰不得。今天不收那张卡，你做得对。'
+            }
+        ],
+        choices: [
+            {
+                text: '「谢谢李哥提醒，我记住了！」',
+                effect: { principle: 10, network: 10 },
+                response: '李明拍拍你的肩膀：「好好干，我看好你！」'
+            },
+            {
+                text: '「可是这样会不会得罪客户？」',
+                effect: { wisdom: 10, principle: -5 },
+                response: '李明摇摇头：「得罪一时，好过后悔一世。记住我的话。」'
+            },
+            {
+                text: '「李哥，那我们下次还能接到这个项目吗？」',
+                effect: { money: 5, career: 5, principle: -5 },
+                response: '李明叹了口气：「项目以后再说，先把人做好。」'
+            }
+        ]
+    },
+    {
+        id: 5,
+        chapter: '第二章 成长之痛',
+        year: 2,
+        scenario: '深夜办公室',
+        narration: [
+            '这一年项目特别多，你经常加班到深夜。',
+            '这一天，你又是最后一个离开办公室...'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '（内心独白）',
+                text: '这样的日子什么时候是个头？每天加班到深夜，陪家人的时间越来越少...'
+            },
+            {
+                speaker: 'boss',
+                name: '（内心独白）',
+                text: '但看着自己做的项目一个个顺利完成，又觉得很有成就感。选择这一行，到底是对是错？'
+            }
+        ],
+        choices: [
+            {
+                text: '「再坚持一下，一切都会好起来的！」',
+                effect: { career: 15, pressure: 5, health: -5 },
+                response: '你给自己打气，继续投入工作。'
+            },
+            {
+                text: '「是该考虑一下工作和生活的平衡了。」',
+                effect: { health: 15, family: 10, pressure: -10 },
+                response: '你决定以后按时下班，多陪陪家人。'
+            },
+            {
+                text: '「或许该考虑换一份工作？」',
+                effect: { potential: 10, risk: 5, career: -5 },
+                response: '这个念头在你脑中一闪而过，你摇了摇头，继续工作。'
+            }
+        ]
+    },
+    {
+        id: 6,
+        chapter: '第三章 十字路口',
+        year: 3,
+        scenario: 'HR办公室',
+        narration: [
+            '入职第三年，你已经是高级审计员了。',
+            '这一天，HR找你谈话。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: 'HR经理',
+                text: '恭喜你，今年的绩效评估非常优秀！所里决定提拔你为项目经理，你觉得怎么样？'
+            }
+        ],
+        choices: [
+            {
+                text: '「谢谢！我一定不辜负所里的期望！」',
+                effect: { career: 20, pressure: 10, potential: 10 },
+                response: 'HR经理满意地笑了：「好好干，前途无量！」'
+            },
+            {
+                text: '「我想再准备准备，可以晚一年吗？」',
+                effect: { wisdom: 15, pressure: -5, career: 5 },
+                response: 'HR经理有些意外，但还是点点头：「可以理解，你再考虑考虑。」'
+            },
+            {
+                text: '「请问晋升后主要负责什么？」',
+                effect: { wisdom: 10, network: 5 },
+                response: 'HR经理解释了职责，你听得很认真。'
+            }
+        ]
+    },
+    {
+        id: 7,
+        chapter: '第三章 十字路口',
+        year: 3,
+        scenario: '家里',
+        narration: [
+            '你回到家，和家人谈起晋升的事。',
+            '爱人的反应却有些复杂...'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '爱人',
+                text: '晋升是好事，但项目经理是不是更忙了？你已经好久没陪孩子了...'
+            }
+        ],
+        choices: [
+            {
+                text: '「我会尽量平衡的，再给我几年时间。」',
+                effect: { career: 10, family: 5, pressure: 10 },
+                response: '爱人叹了口气，但还是支持你的决定。'
+            },
+            {
+                text: '「你说得对，是该多陪陪家人了。」',
+                effect: { family: 20, health: 10, career: -10 },
+                response: '爱人欣慰地笑了，一家人度过了温馨的一晚。'
+            },
+            {
+                text: '「这是个难得的机会，错过了太可惜。」',
+                effect: { career: 15, money: 5, family: -10 },
+                response: '爱人没再说什么，但你能感觉到她的失落。'
+            }
+        ]
+    },
+    {
+        id: 8,
+        chapter: '第三章 十字路口',
+        year: 3,
+        scenario: '客户仓库',
+        narration: [
+            '最终，你还是接受了晋升，成为了项目经理。',
+            '第一个独立负责的项目，就遇到了麻烦...'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '仓库管理员',
+                text: '李经理，您看这仓库都看了三遍了，还有什么不放心的？'
+            },
+            {
+                speaker: 'boss',
+                name: '你',
+                text: '（发现疑点）等等，这排货架上的货物，包装好像和其他的不一样...'
+            },
+            {
+                speaker: 'boss',
+                name: '仓库管理员',
+                text: '（有些紧张）这...这是刚到的新货，还没来得及整理。'
+            }
+        ],
+        choices: [
+            {
+                text: '「麻烦把这排货物拆箱，我要抽验。」',
+                effect: { principle: 20, courage: 15, risk: 10 },
+                response: '管理员脸色煞白，你知道，你发现了大问题。'
+            },
+            {
+                text: '「好吧，这次就算了，下次注意。」',
+                effect: { principle: -15, risk: 20, network: 5 },
+                response: '管理员松了一口气，但你心里却忐忑不安。'
+            },
+            {
+                text: '「我先记下来，回头再和你们财务确认。」',
+                effect: { wisdom: 15, principle: 5, risk: 5 },
+                response: '你决定先了解清楚情况，再做判断。'
+            }
+        ]
+    },
+    {
+        id: 9,
+        chapter: '第四章 权力游戏',
+        year: 5,
+        scenario: '合伙人办公室',
+        narration: [
+            '入职第五年，你已经是事务所的骨干了。',
+            '这一天，合伙人找你谈话。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '张所长',
+                text: '你这几年的表现大家有目共睹。我准备推荐你做合伙人，你觉得怎么样？'
+            },
+            {
+                speaker: 'boss',
+                name: '张所长',
+                text: '不过有个条件——「华信集团」这个项目，你要「灵活处理」。你懂我的意思吧？'
+            }
+        ],
+        choices: [
+            {
+                text: '「对不起张所长，我做不到。」',
+                effect: { principle: 25, courage: 20, career: -15 },
+                response: '张所长脸色很难看，但你知道，你做了正确的选择。'
+            },
+            {
+                text: '「华信集团风险太高了，能不能换个项目？」',
+                effect: { wisdom: 20, principle: 10, network: -5 },
+                response: '张所长有些失望，但没有勉强你。'
+            },
+            {
+                text: '「好的张所长，我明白了。」',
+                effect: { principle: -25, risk: 25, career: 20, money: 15 },
+                response: '张所长满意地点点头，但你心里的重担，却越来越沉。'
+            }
+        ]
+    },
+    {
+        id: 10,
+        chapter: '第四章 权力游戏',
+        year: 5,
+        scenario: '项目危机会议',
+        narration: [
+            '华信集团的项目还是出了问题，',
+            '证监会立案调查，事务所紧急召开会议。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '张所长',
+                text: '现在情况很麻烦，证监会那边一定要有人负责。你是项目经理，你说怎么办？'
+            },
+            {
+                speaker: 'boss',
+                name: '张所长',
+                text: '你把责任担下来，就说是个人失误。我保证，事情过去后，你的位置还是你的。'
+            }
+        ],
+        choices: [
+            {
+                text: '「对不起，这个责任我担不起。」',
+                effect: { principle: 20, courage: 20, risk: -10 },
+                response: '你决定向证监会说明一切，寻求宽大处理。'
+            },
+            {
+                text: '「所长，当初是您让我那样做的...」',
+                effect: { wisdom: 15, network: -15, risk: 5 },
+                response: '张所长脸色铁青，但你的话，让其他合伙人开始重新审视。'
+            },
+            {
+                text: '「好，我一个人承担。」',
+                effect: { principle: -20, network: 10, risk: 25 },
+                response: '你一个人扛下了所有，但心里的委屈，只有自己知道。'
+            }
+        ]
+    },
+    {
+        id: 11,
+        chapter: '第四章 权力游戏',
+        year: 5,
+        scenario: '医院诊室',
+        narration: [
+            '重压之下，你的身体终于出了问题。',
+            '医生建议你休养一段时间。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '医生',
+                text: '年轻人，你的各项指标都不太好。压力太大，睡眠不足。我建议你休息一段时间，否则后果不堪设想。'
+            }
+        ],
+        choices: [
+            {
+                text: '「谢谢医生，我会好好休息的。」',
+                effect: { health: 30, pressure: -25, wisdom: 10 },
+                response: '你决定暂时放下工作，好好陪伴家人。'
+            },
+            {
+                text: '「医生，能不能开点药，我还有很多工作。」',
+                effect: { health: -10, career: 10, pressure: 10 },
+                response: '医生摇摇头，但还是给你开了药。'
+            },
+            {
+                text: '「我明白了，我会调整的。」',
+                effect: { health: 15, wisdom: 15, pressure: -10 },
+                response: '你决定调整工作节奏，不再那么拼命。'
+            }
+        ]
+    },
+    {
+        id: 12,
+        chapter: '第五章 终极抉择',
+        year: 6,
+        scenario: '证监会会议室',
+        narration: [
+            '经过半年的调查，华信集团的案件终于有了结果。',
+            '你被要求到证监会接受询问。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '调查人员',
+                text: '关于华信集团的审计报告，你有什么要说的？现在坦白，还能算主动交代。'
+            }
+        ],
+        choices: [
+            {
+                text: '「我全部交代，这是我保存的证据。」',
+                effect: { principle: 30, courage: 25, risk: -20 },
+                response: '你提供了关键证据，最终被认定为重大立功表现。'
+            },
+            {
+                text: '「我愿意配合调查，如实说明情况。」',
+                effect: { principle: 15, wisdom: 15, risk: -10 },
+                response: '你如实说明了情况，态度良好，得到了宽大处理。'
+            },
+            {
+                text: '「我都是按所长的指示做的...」',
+                effect: { principle: -10, wisdom: 5, network: -20 },
+                response: '你的话引发了连锁反应，更多人被牵扯进来。'
+            }
+        ]
+    },
+    {
+        id: 13,
+        chapter: '第五章 终极抉择',
+        year: 6,
+        scenario: '家中',
+        narration: [
+            '案件结束后，你回到了家中。',
+            '未来的路该怎么走，你需要好好想想。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '爱人',
+                text: '不管你做什么决定，我都支持你。这些年你太辛苦了，不如换个活法？'
+            }
+        ],
+        choices: [
+            {
+                text: '「我想换个行业，重新开始。」',
+                effect: { potential: 25, health: 15, pressure: -20 },
+                response: '你决定离开审计行业，寻找新的可能性。'
+            },
+            {
+                text: '「我想开一家自己的事务所。」',
+                effect: { potential: 20, principle: 15, risk: 15 },
+                response: '你决定用自己的方式，做真正的审计。'
+            },
+            {
+                text: '「我想先休息一段时间，陪陪家人。」',
+                effect: { family: 25, health: 20, pressure: -25 },
+                response: '你决定给自己放个长假，思考清楚未来的方向。'
+            }
+        ]
+    },
+    {
+        id: 14,
+        chapter: '第五章 终极抉择',
+        year: 6,
+        scenario: '猎头电话',
+        narration: [
+            '就在这时，一个猎头公司给你打来了电话，',
+            '提供了一个意想不到的机会。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '猎头',
+                text: '陈总，我们这边有个非常合适的机会——前几年被你「发现」的那家企业，现在想请你去做内审总监，待遇是现在的三倍！'
+            }
+        ],
+        choices: [
+            {
+                text: '「谢谢，但我不能去。」',
+                effect: { principle: 20, network: -5, wisdom: 10 },
+                response: '你婉拒了邀请，但你知道，你的坚持，有人看在眼里。'
+            },
+            {
+                text: '「这倒是个不错的机会，我考虑一下。」',
+                effect: { money: 20, career: 10, wisdom: 10 },
+                response: '你开始认真考虑这个可能性。'
+            },
+            {
+                text: '「好，我什么时候入职？」',
+                effect: { money: 30, career: 15, principle: -10 },
+                response: '你接受了邀请，开始了新的职业生涯。'
+            }
+        ]
+    },
+    {
+        id: 15,
+        chapter: '终章',
+        year: 6,
+        scenario: '深夜',
+        narration: [
+            '你站在窗前，看着这座城市的夜景。',
+            '入行六年，酸甜苦辣，历历在目。'
+        ],
+        dialogs: [
+            {
+                speaker: 'boss',
+                name: '（内心独白）',
+                text: '如果再给你一次机会，你还会选择这行吗？你还会做出同样的选择吗？'
+            }
+        ],
+        choices: [
+            {
+                text: '「我会做出同样的选择。」',
+                effect: { principle: 15, courage: 10, wisdom: 10 },
+                response: '你不后悔自己的选择，因为你知道，有些东西，比什么都重要。'
+            },
+            {
+                text: '「或许会有不同的选择吧。」',
+                effect: { wisdom: 15, family: 10, health: 10 },
+                response: '你明白了一些事情，或许，这就是成长。'
+            },
+            {
+                text: '「人生没有如果，只有后果和结果。」',
+                effect: { wisdom: 25, potential: 10 },
+                response: '你释然了，无论过去如何，未来，还在你自己手中。'
+            }
+        ]
+    }
 ];
 
 // 审计剧场结局
