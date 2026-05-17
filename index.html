@@ -383,7 +383,7 @@
                                 <p class="text-gray-600 text-lg mb-8 max-w-2xl mx-auto">
                                     融合游戏闯关与专业评估，通过沉浸式学习体验助你成为审计高手
                                 </p>
-                                <div class="grid md:grid-cols-3 gap-6 mb-8">
+                                <div class="grid md:grid-cols-4 gap-6 mb-8">
                                     <div class="feature-card bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 rounded-xl border border-blue-100">
                                         <div class="w-14 h-14 bg-gradient-to-br from-primary to-blue-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                                             <i class="fa fa-gamepad text-white text-2xl"></i>
@@ -404,6 +404,13 @@
                                         </div>
                                         <h3 class="font-bold text-dark mb-2">审计剧场</h3>
                                         <p class="text-sm text-gray-600">体验审计师职业生涯</p>
+                                    </div>
+                                    <div class="feature-card bg-gradient-to-br from-orange-50 to-orange-100/50 p-6 rounded-xl border border-orange-100 cursor-pointer hover:shadow-xl transition-shadow" onclick="app.openAIAssistant()">
+                                        <div class="w-14 h-14 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                            <i class="fa fa-robot text-white text-2xl"></i>
+                                        </div>
+                                        <h3 class="font-bold text-dark mb-2">AI审计助手</h3>
+                                        <p class="text-sm text-gray-600">AI专业顾问随时解答</p>
                                     </div>
                                 </div>
                                 <div class="flex justify-center gap-4 flex-wrap">
@@ -570,6 +577,24 @@
                                     <i class="fa fa-book text-secondary"></i>推荐学习资料
                                 </h3>
                                 <div id="materials-list" class="space-y-4"></div>
+                            </div>
+                            
+                            <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl shadow-xl p-8 border-2 border-orange-100">
+                                <h3 class="text-xl font-bold text-dark mb-6 flex items-center gap-2">
+                                    <i class="fa fa-robot text-orange-500"></i>AI审计助手
+                                </h3>
+                                <p class="text-gray-600 mb-4">
+                                    有任何审计相关问题？随时向AI审计助手提问，获得专业解答！
+                                </p>
+                                <div id="assessment-ai-chat" class="bg-white rounded-xl p-4 border border-orange-100">
+                                    <div id="assessment-ai-messages" class="mb-4 max-h-60 overflow-y-auto space-y-3"></div>
+                                    <div class="flex gap-2">
+                                        <input id="assessment-ai-input" type="text" placeholder="向AI提问审计问题..." class="flex-1 px-4 py-3 border border-orange-200 rounded-xl focus:outline-none focus:border-orange-400">
+                                        <button onclick="app.sendAssessmentAIMessage()" class="px-6 py-3 bg-gradient-to-r from-orange-400 to-orange-600 text-white rounded-xl font-medium hover:shadow-lg transition-all">
+                                            <i class="fa fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -740,6 +765,47 @@
                 </div>
             </div>
             <div id="theater-content" class="p-6"></div>
+        </div>
+    </div>
+    
+    <div id="ai-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop bg-black/40 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="p-6 border-b border-gray-100 bg-gradient-to-r from-orange-400/10 to-orange-500/10 sticky top-0 z-10">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center">
+                            <i class="fa fa-robot text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-dark">AI审计助手</h3>
+                            <p class="text-sm text-gray-500">专业审计顾问，随时为您解答</p>
+                        </div>
+                    </div>
+                    <button onclick="app.closeAIAssistant()" class="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors">
+                        <i class="fa fa-times text-gray-400"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="ai-messages" class="p-6 flex-1 overflow-y-auto space-y-4 bg-gradient-to-b from-gray-50 to-white"></div>
+            <div class="p-6 border-t border-gray-100 bg-white sticky bottom-0">
+                <div class="flex gap-3">
+                    <input id="ai-input" type="text" placeholder="请输入审计相关问题..." class="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-400 text-base">
+                    <button onclick="app.sendAIMessage()" class="px-8 py-3 bg-gradient-to-r from-orange-400 to-orange-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all">
+                        <i class="fa fa-paper-plane mr-2"></i>发送
+                    </button>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <button onclick="app.quickAIQuestion('什么是审计风险')" class="px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm hover:bg-blue-100 transition-colors">
+                        什么是审计风险
+                    </button>
+                    <button onclick="app.quickAIQuestion('财务报表审计流程')" class="px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm hover:bg-green-100 transition-colors">
+                        财务报表审计流程
+                    </button>
+                    <button onclick="app.quickAIQuestion('如何识别财务造假')" class="px-4 py-2 bg-pink-50 text-pink-700 rounded-full text-sm hover:bg-pink-100 transition-colors">
+                        如何识别财务造假
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -996,6 +1062,25 @@
                 document.querySelectorAll('.tab-btn').forEach(btn => {
                     btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
                 });
+                
+                // AI输入框回车键发送
+                const aiInput = document.getElementById('ai-input');
+                if (aiInput) {
+                    aiInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            this.sendAIMessage();
+                        }
+                    });
+                }
+                
+                const assessmentAIInput = document.getElementById('assessment-ai-input');
+                if (assessmentAIInput) {
+                    assessmentAIInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            this.sendAssessmentAIMessage();
+                        }
+                    });
+                }
             }
 
             switchTab(tabName) {
@@ -2314,6 +2399,129 @@
                 }).catch(() => {
                     this.showToast('复制失败', 'warning');
                 });
+            }
+            
+            // AI助手功能
+            openAIAssistant() {
+                document.getElementById('ai-modal').classList.remove('hidden');
+                const messagesContainer = document.getElementById('ai-messages');
+                if (messagesContainer.innerHTML === '') {
+                    this.addAIMessage('您好！我是您的AI审计助手。有任何审计相关问题都可以向我提问，我会尽力为您提供专业解答！', 'ai');
+                }
+                document.getElementById('ai-input').focus();
+            }
+            
+            closeAIAssistant() {
+                document.getElementById('ai-modal').classList.add('hidden');
+            }
+            
+            quickAIQuestion(question) {
+                document.getElementById('ai-input').value = question;
+                this.sendAIMessage();
+            }
+            
+            addAIMessage(text, type, containerId = 'ai-messages') {
+                const container = document.getElementById(containerId);
+                const messageDiv = document.createElement('div');
+                messageDiv.className = type === 'user' 
+                    ? 'flex justify-end' 
+                    : 'flex justify-start';
+                
+                const bubble = document.createElement('div');
+                bubble.className = type === 'user'
+                    ? 'bg-gradient-to-r from-primary to-blue-500 text-white px-6 py-4 rounded-2xl max-w-[80%] shadow-lg'
+                    : 'bg-gradient-to-r from-orange-50 to-orange-100 text-dark px-6 py-4 rounded-2xl max-w-[80%] shadow-lg';
+                
+                bubble.innerHTML = text.replace(/\n/g, '<br>');
+                messageDiv.appendChild(bubble);
+                container.appendChild(messageDiv);
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            async sendAIMessage() {
+                const input = document.getElementById('ai-input');
+                const question = input.value.trim();
+                
+                if (!question) {
+                    this.showToast('请输入您的问题', 'warning');
+                    return;
+                }
+                
+                this.addAIMessage(question, 'user');
+                input.value = '';
+                
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'flex justify-start';
+                loadingDiv.innerHTML = `
+                    <div class="bg-gradient-to-r from-orange-50 to-orange-100 text-dark px-6 py-4 rounded-2xl shadow-lg">
+                        <i class="fa fa-spinner fa-spin mr-2"></i>正在思考中...
+                    </div>
+                `;
+                document.getElementById('ai-messages').appendChild(loadingDiv);
+                
+                try {
+                    const response = await fetch('/api/ask-ai', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ question })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    document.getElementById('ai-messages').removeChild(loadingDiv);
+                    
+                    if (data.answer) {
+                        this.addAIMessage(data.answer, 'ai');
+                    } else {
+                        this.addAIMessage('抱歉，我无法回答这个问题，请稍后重试。', 'ai');
+                    }
+                } catch (error) {
+                    document.getElementById('ai-messages').removeChild(loadingDiv);
+                    this.addAIMessage('抱歉，网络连接出现问题，请稍后重试。', 'ai');
+                }
+            }
+            
+            async sendAssessmentAIMessage() {
+                const input = document.getElementById('assessment-ai-input');
+                const question = input.value.trim();
+                
+                if (!question) {
+                    this.showToast('请输入您的问题', 'warning');
+                    return;
+                }
+                
+                this.addAIMessage(question, 'user', 'assessment-ai-messages');
+                input.value = '';
+                
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'flex justify-start';
+                loadingDiv.innerHTML = `
+                    <div class="bg-gradient-to-r from-orange-50 to-orange-100 text-dark px-4 py-3 rounded-xl shadow">
+                        <i class="fa fa-spinner fa-spin mr-2"></i>正在思考中...
+                    </div>
+                `;
+                document.getElementById('assessment-ai-messages').appendChild(loadingDiv);
+                
+                try {
+                    const response = await fetch('/api/ask-ai', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ question })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    document.getElementById('assessment-ai-messages').removeChild(loadingDiv);
+                    
+                    if (data.answer) {
+                        this.addAIMessage(data.answer, 'ai', 'assessment-ai-messages');
+                    } else {
+                        this.addAIMessage('抱歉，我无法回答这个问题，请稍后重试。', 'ai', 'assessment-ai-messages');
+                    }
+                } catch (error) {
+                    document.getElementById('assessment-ai-messages').removeChild(loadingDiv);
+                    this.addAIMessage('抱歉，网络连接出现问题，请稍后重试。', 'ai', 'assessment-ai-messages');
+                }
             }
 
             submitCaseAnswer() {
