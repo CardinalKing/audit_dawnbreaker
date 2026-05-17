@@ -57,6 +57,110 @@
         .choice-btn:hover { transform: scale(1.02); }
         .quiz-modal { max-height: 90vh; }
         .quiz-content { max-height: calc(90vh - 180px); overflow-y: auto; }
+        
+        /* 新剧场样式 */
+        .theater-container {
+            background-image: url('background.jpeg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 80vh;
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .theater-overlay {
+            background: rgba(0,0,0,0.5);
+            position: absolute;
+            inset: 0;
+        }
+        .theater-content-wrapper {
+            position: relative;
+            z-index: 10;
+            padding: 30px;
+        }
+        .narration-line {
+            color: white;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+            font-size: 18px;
+            line-height: 1.8;
+            animation: floatUp 0.8s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        @keyframes floatUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .character-left {
+            animation: slideInLeft 0.6s ease-out forwards;
+        }
+        .character-right {
+            animation: slideInRight 0.6s ease-out forwards;
+        }
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .dialog-bubble {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+            animation: bubblePop 0.4s ease-out 0.3s both;
+        }
+        .dialog-bubble::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: 15px solid transparent;
+        }
+        .dialog-bubble.left::before {
+            right: 100%;
+            top: 30px;
+            border-right-color: white;
+        }
+        .dialog-bubble.right::before {
+            left: 100%;
+            top: 30px;
+            border-left-color: white;
+        }
+        @keyframes bubblePop {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        .character-img {
+            width: 150px;
+            height: 200px;
+            object-fit: contain;
+        }
+        
         @keyframes correctFlash {
             0%, 100% { background-color: #f6ffed; }
             50% { background-color: #b7eb8f; }
@@ -826,7 +930,7 @@
                     chapterStars: {},
                     purchasedItems: [],
                     unlockedAchievements: [],
-                    theaterStats: { wisdom: 50, courage: 50, principle: 50, network: 50, money: 50, family: 50, health: 100, pressure: 30 },
+                    theaterStats: { wisdom: 50, courage: 50, principle: 50, network: 50, money: 50, family: 50, health: 100, pressure: 30, career: 50, risk: 0, potential: 50 },
                     currentTheaterEvent: 0,
                     currentCase: null
                 };
@@ -992,7 +1096,7 @@
                     chapterStars: {},
                     purchasedItems: [],
                     unlockedAchievements: [],
-                    theaterStats: { wisdom: 50, courage: 50, principle: 50, network: 50, money: 50, family: 50, health: 100, pressure: 30 },
+                    theaterStats: { wisdom: 50, courage: 50, principle: 50, network: 50, money: 50, family: 50, health: 100, pressure: 30, career: 50, risk: 0, potential: 50 },
                     currentTheaterEvent: 0,
                     currentCase: null
                 };
@@ -1912,138 +2016,285 @@
 
             renderTheater() {
                 const container = document.getElementById('theater-events');
-                const chapters = {};
-                theaterEvents.forEach(event => {
-                    if (!chapters[event.chapter]) {
-                        chapters[event.chapter] = [];
-                    }
-                    chapters[event.chapter].push(event);
-                });
-
-                let html = '';
-                Object.entries(chapters).forEach(([chapter, events]) => {
-                    html += `
-                        <div class="mb-8">
-                            <h4 class="text-lg font-bold text-dark mb-4 flex items-center gap-2">
-                                <i class="fa fa-book text-secondary"></i>${chapter}
-                            </h4>
-                            <div class="grid gap-3">
-                                ${events.map(event => `
-                                    <div class="theater-event p-4 bg-gradient-to-r from-teal-50 to-white rounded-xl border border-teal-100 hover:from-teal-100 cursor-pointer transition-all" onclick="app.startTheaterEvent(${event.id})">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
-                                                    <i class="fa fa-map-marker-alt text-secondary"></i>
-                                                </div>
-                                                <div>
-                                                    <p class="font-medium text-dark">${event.scenario}</p>
-                                                    <p class="text-xs text-gray-500">第 ${event.year} 年</p>
-                                                </div>
-                                            </div>
-                                            <i class="fa fa-chevron-right text-gray-400"></i>
-                                        </div>
-                                    </div>
-                                `).join('')}
+                
+                // 找出用户当前已经完成的事件和下一个应该玩的事件
+                const completedEvents = this.gameState.completedTheaterEvents || [];
+                let nextEventId = 1;
+                
+                // 找到下一个未完成的事件
+                while (completedEvents.includes(nextEventId) && nextEventId <= theaterEvents.length) {
+                    nextEventId++;
+                }
+                
+                if (nextEventId > theaterEvents.length) {
+                    // 全部完成了，显示结局
+                    container.innerHTML = `
+                        <div class="text-center py-12">
+                            <div class="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                                <i class="fa fa-trophy text-white text-4xl"></i>
                             </div>
+                            <h3 class="text-2xl font-bold text-dark mb-4">恭喜完成审计人生！</h3>
+                            <p class="text-gray-600 mb-6">感谢你体验这个故事</p>
+                            <button onclick="app.showEnding(true)" class="px-8 py-3 bg-gradient-to-r from-accent to-purple-600 text-white rounded-full font-medium hover:shadow-lg transition-all">
+                                <i class="fa fa-flag-checkered mr-2"></i>查看结局
+                            </button>
                         </div>
                     `;
-                });
-                container.innerHTML = html;
+                    return;
+                }
+                
+                const nextEvent = theaterEvents.find(e => e.id === nextEventId);
+                
+                container.innerHTML = `
+                    <div class="mb-8">
+                        <h4 class="text-lg font-bold text-dark mb-6 flex items-center gap-2">
+                            <i class="fa fa-book text-secondary"></i>${nextEvent.chapter}
+                        </h4>
+                        
+                        <!-- 章节进度 -->
+                        <div class="mb-8 bg-white p-4 rounded-xl border border-gray-200">
+                            <p class="text-sm text-gray-600 mb-3">进度：${completedEvents.length} / ${theaterEvents.length} 个事件</p>
+                            <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-secondary to-teal-500 rounded-full" style="width: ${(completedEvents.length / theaterEvents.length) * 100}%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 已完成的事件列表 -->
+                        ${completedEvents.length > 0 ? `
+                            <div class="mb-8">
+                                <h5 class="text-sm font-medium text-gray-500 mb-4">已完成</h5>
+                                <div class="space-y-3">
+                                    ${theaterEvents.filter(e => completedEvents.includes(e.id)).map(event => `
+                                        <div class="p-4 bg-gray-50 rounded-xl border border-gray-200 flex items-center gap-4">
+                                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                                <i class="fa fa-check text-green-600"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="font-medium text-gray-700">${event.scenario}</p>
+                                                <p class="text-xs text-gray-500">${event.chapter}</p>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <!-- 下一个要完成的事件 -->
+                        <div class="theater-event p-6 bg-gradient-to-r from-teal-50 to-white rounded-2xl border-2 border-teal-300 hover:border-secondary cursor-pointer transition-all shadow-lg" onclick="app.startTheaterEvent(${nextEvent.id})">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-14 h-14 bg-gradient-to-br from-secondary to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                                    <i class="fa fa-play text-white text-2xl"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h5 class="font-bold text-dark text-lg">${nextEvent.scenario}</h5>
+                                    <p class="text-sm text-gray-500">第 ${nextEvent.year} 年</p>
+                                </div>
+                            </div>
+                            <button class="w-full py-3 bg-gradient-to-r from-secondary to-teal-500 text-white rounded-xl font-medium hover:shadow-lg transition-all">
+                                <i class="fa fa-hand-pointer mr-2"></i>开始体验
+                            </button>
+                        </div>
+                        
+                        <!-- 属性面板 -->
+                        <div class="mt-8 p-5 bg-white rounded-2xl border border-gray-200">
+                            <p class="text-sm font-medium text-gray-700 mb-4">当前属性</p>
+                            <div class="grid grid-cols-4 gap-4">
+                                <div class="text-center p-3 bg-blue-50 rounded-xl">
+                                    <div class="text-2xl font-bold text-blue-600">${this.gameState.theaterStats.wisdom}</div>
+                                    <div class="text-xs text-gray-600">智慧</div>
+                                </div>
+                                <div class="text-center p-3 bg-orange-50 rounded-xl">
+                                    <div class="text-2xl font-bold text-orange-600">${this.gameState.theaterStats.courage}</div>
+                                    <div class="text-xs text-gray-600">勇气</div>
+                                </div>
+                                <div class="text-center p-3 bg-green-50 rounded-xl">
+                                    <div class="text-2xl font-bold text-green-600">${this.gameState.theaterStats.principle}</div>
+                                    <div class="text-xs text-gray-600">原则</div>
+                                </div>
+                                <div class="text-center p-3 bg-purple-50 rounded-xl">
+                                    <div class="text-2xl font-bold text-purple-600">${this.gameState.theaterStats.network}</div>
+                                    <div class="text-xs text-gray-600">人脉</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
 
-            startTheaterEvent(eventId) {
+            async startTheaterEvent(eventId) {
                 const event = theaterEvents.find(e => e.id === eventId);
                 if (!event) return;
 
                 document.getElementById('theater-title').textContent = event.scenario;
                 document.getElementById('theater-subtitle').textContent = `${event.chapter} · 第 ${event.year} 年`;
                 
-                const eventIndex = theaterEvents.indexOf(event);
-                const scenarioIndex = eventIndex % 3;
+                const contentContainer = document.getElementById('theater-content');
                 
-                const choices = this.getTheaterChoices(scenarioIndex);
-                
-                document.getElementById('theater-content').innerHTML = `
-                    <div class="text-center mb-8">
-                        <div class="w-20 h-20 bg-gradient-to-br from-secondary to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                            <i class="fa fa-theater-masks text-white text-3xl"></i>
-                        </div>
-                        <p class="text-gray-600">请选择你的行动：</p>
-                    </div>
-                    <div class="space-y-4">
-                        ${choices.map((choice, idx) => `
-                            <button onclick="app.makeTheaterChoice(${eventId}, ${idx})" class="choice-btn w-full p-5 bg-gradient-to-r from-teal-50 to-white rounded-xl border-2 border-teal-200 hover:border-secondary hover:shadow-lg text-left transition-all">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
-                                        <span class="text-secondary font-bold">${String.fromCharCode(65 + idx)}</span>
-                                    </div>
-                                    <p class="font-medium text-dark">${choice.text}</p>
-                                </div>
-                            </button>
-                        `).join('')}
-                    </div>
-                    <div class="mt-8 p-4 bg-gray-50 rounded-xl">
-                        <p class="text-sm text-gray-500 mb-2">当前属性：</p>
-                        <div class="grid grid-cols-4 gap-2 text-xs">
-                            <div class="text-center"><span class="text-primary">智慧 ${this.gameState.theaterStats.wisdom}</span></div>
-                            <div class="text-center"><span class="text-orange-500">勇气 ${this.gameState.theaterStats.courage}</span></div>
-                            <div class="text-center"><span class="text-green-500">原则 ${this.gameState.theaterStats.principle}</span></div>
-                            <div class="text-center"><span class="text-purple-500">人脉 ${this.gameState.theaterStats.network}</span></div>
+                // 第一步：显示旁白（单行向上浮现动画）
+                contentContainer.innerHTML = `
+                    <div class="theater-container">
+                        <div class="theater-overlay"></div>
+                        <div class="theater-content-wrapper" id="narration-wrapper">
+                            <!-- 旁白将在这里逐行显示 -->
                         </div>
                     </div>
                 `;
                 
                 document.getElementById('theater-modal').classList.remove('hidden');
-            }
-
-            getTheaterChoices(scenarioIndex) {
-                const allChoices = [
-                    [
-                        { text: '积极表现，争取留用机会', effect: { wisdom: 5, principle: 3 } },
-                        { text: '稳扎稳打，完成本职工作', effect: { wisdom: 3, network: 2 } },
-                        { text: '主动请教前辈，加速成长', effect: { wisdom: 4, network: 4 } }
-                    ],
-                    [
-                        { text: '坚持原则，拒绝妥协', effect: { principle: 10, courage: 5 } },
-                        { text: '权衡利弊，做出最优选择', effect: { wisdom: 5, network: 3 } },
-                        { text: '寻求他人支持，共同应对', effect: { network: 6, wisdom: 2 } }
-                    ],
-                    [
-                        { text: '勇往直前，接受挑战', effect: { courage: 8, risk: 5 } },
-                        { text: '谨慎评估，三思后行', effect: { wisdom: 6, caution: 3 } },
-                        { text: '另辟蹊径，寻找新机会', effect: { network: 4, potential: 5 } }
-                    ]
-                ];
-                return allChoices[scenarioIndex] || allChoices[0];
-            }
-
-            makeTheaterChoice(eventId, choiceIndex) {
-                const scenarioIndex = eventId % 3;
-                const choices = this.getTheaterChoices(scenarioIndex);
-                const choice = choices[choiceIndex];
                 
+                await this.delay(500);
+                
+                // 逐行显示旁白
+                const narrationWrapper = document.getElementById('narration-wrapper');
+                for (let i = 0; i < event.narration.length; i++) {
+                    const line = event.narration[i];
+                    const p = document.createElement('p');
+                    p.className = 'narration-line mb-4';
+                    p.textContent = line;
+                    p.style.animationDelay = `${i * 0.3}s`;
+                    narrationWrapper.appendChild(p);
+                    await this.delay(600);
+                }
+                
+                await this.delay(800);
+                
+                // 第二步：显示角色对话（从左侧弹出Boss图片）
+                narrationWrapper.innerHTML += `
+                    <div class="mt-10">
+                        ${event.dialogs.map((dialog, idx) => `
+                            <div class="flex items-start gap-4 mb-8 character-left" style="animation-delay: ${idx * 0.5}s">
+                                <img src="Boss Image 1.jpg" class="character-img" onerror="this.src='https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=200&fit=crop&crop=face'" alt="Boss">
+                                <div class="flex-1">
+                                    ${dialog.name ? `<p class="text-white font-bold mb-2 text-lg">${dialog.name}</p>` : ''}
+                                    <div class="dialog-bubble left">
+                                        <p class="text-gray-800">${dialog.text}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                await this.delay(event.dialogs.length * 500 + 1000);
+                
+                // 第三步：显示选择按钮
+                narrationWrapper.innerHTML += `
+                    <div class="mt-12 bg-white/95 p-6 rounded-2xl backdrop-blur-sm">
+                        <p class="font-bold text-dark text-lg mb-6 flex items-center gap-2">
+                            <i class="fa fa-lightbulb text-yellow-500"></i>请做出你的选择
+                        </p>
+                        <div class="space-y-4">
+                            ${event.choices.map((choice, idx) => `
+                                <button onclick="app.makeTheaterChoice(${eventId}, ${idx})" class="choice-btn w-full p-5 bg-gradient-to-r from-teal-50 to-white rounded-xl border-2 border-teal-200 hover:border-secondary hover:shadow-lg text-left transition-all">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 bg-secondary/20 rounded-lg flex items-center justify-center">
+                                            <span class="text-secondary font-bold text-xl">${String.fromCharCode(65 + idx)}</span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="font-medium text-dark">${choice.text}</p>
+                                            <div class="text-xs text-gray-500 mt-2">
+                                                ${Object.entries(choice.effect || {}).map(([key, val]) => `
+                                                    <span class="${val > 0 ? 'text-green-600' : 'text-red-600'} mr-3">
+                                                        ${this.getStatName(key)} ${val > 0 ? '+' : ''}${val}
+                                                    </span>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            getStatName(key) {
+                const names = {
+                    principle: '原则',
+                    courage: '勇气',
+                    wisdom: '智慧',
+                    network: '人脉',
+                    money: '财富',
+                    family: '家庭',
+                    health: '健康',
+                    career: '事业',
+                    risk: '风险',
+                    pressure: '压力',
+                    potential: '潜力'
+                };
+                return names[key] || key;
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            async makeTheaterChoice(eventId, choiceIndex) {
+                const event = theaterEvents.find(e => e.id === eventId);
+                const choice = event.choices[choiceIndex];
+                
+                // 更新属性
                 if (choice.effect) {
                     Object.keys(choice.effect).forEach(key => {
                         if (this.gameState.theaterStats.hasOwnProperty(key)) {
                             this.gameState.theaterStats[key] = Math.max(0, Math.min(100, this.gameState.theaterStats[key] + choice.effect[key]));
+                        } else {
+                            this.gameState.theaterStats[key] = Math.max(0, Math.min(100, choice.effect[key]));
                         }
                     });
                 }
                 
+                // 标记为已完成
+                if (!this.gameState.completedTheaterEvents) {
+                    this.gameState.completedTheaterEvents = [];
+                }
+                if (!this.gameState.completedTheaterEvents.includes(eventId)) {
+                    this.gameState.completedTheaterEvents.push(eventId);
+                }
+                
                 this.saveData();
+                
+                // 显示用户的选择反馈（右侧显示Clark图片）
+                const contentContainer = document.getElementById('theater-content');
+                contentContainer.innerHTML = `
+                    <div class="theater-container">
+                        <div class="theater-overlay"></div>
+                        <div class="theater-content-wrapper pt-20">
+                            <div class="flex items-start gap-4 mb-8 character-right">
+                                <div class="flex-1 text-right">
+                                    <p class="text-white font-bold mb-2 text-lg">你的选择</p>
+                                    <div class="dialog-bubble right">
+                                        <p class="text-gray-800">${choice.text}</p>
+                                    </div>
+                                </div>
+                                <img src="Clark Image 1.jpg" class="character-img" onerror="this.src='https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=200&fit=crop&crop=face'" alt="Clark">
+                            </div>
+                            <div class="text-center">
+                                <p class="text-white text-xl font-bold mb-4">${choice.response}</p>
+                                <p class="text-gray-300 text-sm">准备进入下一个事件...</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                await this.delay(2000);
+                
                 this.closeTheater();
                 
-                const nextEvent = theaterEvents[eventId];
-                if (nextEvent && eventId < 15) {
-                    setTimeout(() => {
-                        this.startTheaterEvent(eventId + 1);
-                    }, 500);
+                // 检查是否还有下一个事件
+                const nextEventId = eventId + 1;
+                if (nextEventId <= theaterEvents.length) {
+                    this.showToast('事件完成！继续下一段旅程', 'success');
+                    await this.delay(800);
+                    this.startTheaterEvent(nextEventId);
                 } else {
-                    this.showEnding();
+                    this.showToast('恭喜完成审计人生！', 'success');
+                    await this.delay(1000);
+                    this.showEnding(true);
                 }
             }
 
-            showEnding() {
+            showEnding(showModal = false) {
                 const stats = this.gameState.theaterStats;
                 let matchedEnding = theaterEndings.find(ending => {
                     try {
@@ -2052,10 +2303,13 @@
                             .replace(/courage/g, stats.courage)
                             .replace(/wisdom/g, stats.wisdom)
                             .replace(/network/g, stats.network)
-                            .replace(/money/g, stats.money)
-                            .replace(/family/g, stats.family)
-                            .replace(/health/g, stats.health)
-                            .replace(/pressure/g, stats.pressure);
+                            .replace(/money/g, stats.money || 0)
+                            .replace(/family/g, stats.family || 0)
+                            .replace(/health/g, stats.health || 0)
+                            .replace(/pressure/g, stats.pressure || 0)
+                            .replace(/career/g, stats.career || 0)
+                            .replace(/potential/g, stats.potential || 0)
+                            .replace(/risk/g, stats.risk || 0);
                         return eval(condition);
                     } catch {
                         return false;
@@ -2063,7 +2317,7 @@
                 });
                 
                 if (!matchedEnding) {
-                    matchedEnding = theaterEndings.find(e => e.id === 'special1');
+                    matchedEnding = theaterEndings.find(e => e.id === 'special1') || theaterEndings[0];
                 }
                 
                 if (matchedEnding && !this.gameState.unlockedAchievements.includes(matchedEnding.id)) {
@@ -2071,6 +2325,82 @@
                     this.saveData();
                     this.showToast(`解锁成就：${matchedEnding.title}`, 'success');
                 }
+                
+                if (showModal && matchedEnding) {
+                    // 找到完整的结局信息
+                    const fullEnding = achievements.find(a => a.id === matchedEnding.id) || {
+                        name: matchedEnding.title,
+                        description: '你的审计人生达到了一个特别的结局。',
+                        category: matchedEnding.category
+                    };
+                    
+                    const contentContainer = document.getElementById('theater-content');
+                    document.getElementById('theater-title').textContent = '结局揭晓';
+                    document.getElementById('theater-subtitle').textContent = fullEnding.category;
+                    contentContainer.innerHTML = `
+                        <div class="text-center py-8">
+                            <div class="w-28 h-28 bg-gradient-to-br from-accent to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                                <span class="text-5xl">${fullEnding.icon || '🎭'}</span>
+                            </div>
+                            <h3 class="text-3xl font-bold text-dark mb-4">${fullEnding.name}</h3>
+                            <p class="text-gray-600 text-lg mb-8 max-w-md mx-auto">${fullEnding.description}</p>
+                            
+                            <div class="bg-gray-50 p-6 rounded-2xl mb-8">
+                                <p class="text-sm font-medium text-gray-700 mb-4">最终属性</p>
+                                <div class="grid grid-cols-4 gap-3">
+                                    <div class="text-center p-3 bg-blue-50 rounded-xl">
+                                        <div class="text-xl font-bold text-blue-600">${stats.wisdom}</div>
+                                        <div class="text-xs text-gray-600">智慧</div>
+                                    </div>
+                                    <div class="text-center p-3 bg-orange-50 rounded-xl">
+                                        <div class="text-xl font-bold text-orange-600">${stats.courage}</div>
+                                        <div class="text-xs text-gray-600">勇气</div>
+                                    </div>
+                                    <div class="text-center p-3 bg-green-50 rounded-xl">
+                                        <div class="text-xl font-bold text-green-600">${stats.principle}</div>
+                                        <div class="text-xs text-gray-600">原则</div>
+                                    </div>
+                                    <div class="text-center p-3 bg-purple-50 rounded-xl">
+                                        <div class="text-xl font-bold text-purple-600">${stats.network}</div>
+                                        <div class="text-xs text-gray-600">人脉</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-4 justify-center">
+                                <button onclick="app.resetTheater()" class="px-8 py-3 bg-gradient-to-r from-secondary to-teal-500 text-white rounded-full font-medium hover:shadow-lg transition-all">
+                                    <i class="fa fa-redo mr-2"></i>重新体验
+                                </button>
+                                <button onclick="app.closeTheater()" class="px-8 py-3 bg-gray-200 text-gray-700 rounded-full font-medium hover:bg-gray-300 transition-all">
+                                    <i class="fa fa-times mr-2"></i>关闭
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('theater-modal').classList.remove('hidden');
+                }
+            }
+
+            resetTheater() {
+                // 重置剧场进度和属性
+                this.gameState.theaterStats = {
+                    wisdom: 50,
+                    courage: 50,
+                    principle: 50,
+                    network: 50,
+                    money: 50,
+                    family: 50,
+                    health: 50,
+                    career: 50,
+                    risk: 0,
+                    pressure: 0,
+                    potential: 50
+                };
+                this.gameState.completedTheaterEvents = [];
+                this.saveData();
+                this.closeTheater();
+                this.renderTheater();
+                this.showToast('已重置，开始新的审计人生！', 'success');
             }
 
             closeTheater() {
