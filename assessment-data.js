@@ -219,7 +219,7 @@ const recommendedMaterials = [
         title: "关联方交易审计与披露规范",
         description: "详解关联方识别、交易公允性判断、披露要求",
         links: [
-            { url: "https://www.cicpa.org.cn/ztzl1/Professional_Standards/", text: "中注协审计准则" },
+            { url: "https://www.cicpa.org.cn/ztzl1/Professional_standards/", text: "中注协审计准则" },
             { url: "https://b23.tv/N3kU6sC", text: "视频资料" },
             { url: "https://www.icourse163.org/course/DUFE-1003327003", text: "高校课程" }
         ]
