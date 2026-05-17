@@ -10,6 +10,11 @@ const app = express();
 const PORT = process.env.PORT || 9000;
 const JWT_SECRET = process.env.JWT_SECRET || 'audit-learning-secret-key-2024';
 
+// 注册中间件（必须在路由之前！）
+app.use(cors());
+app.use(express.json());
+app.use(express.static(__dirname));
+
 const KNOWLEDGE_BASE_FILE = path.join(__dirname, 'knowledge-base.json');
 
 // 从文件加载知识库
@@ -292,10 +297,6 @@ app.get('/api/knowledge-count', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
-
-app.use(cors());
-app.use(express.json());
-app.use(express.static(__dirname));
 
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
