@@ -1,6 +1,4 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
@@ -8,7 +6,6 @@ const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 9000;
-const JWT_SECRET = process.env.JWT_SECRET || 'audit-learning-secret-key-2024';
 
 // 注册中间件（必须在路由之前！）
 app.use(cors());
